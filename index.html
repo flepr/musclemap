@@ -174,9 +174,43 @@
   svg{-webkit-user-select:none;user-select:none}
   .muscle{-webkit-tap-highlight-color:transparent}
   .chip{-webkit-user-select:none;user-select:none}
+
+  /* ---- Écran de verrouillage (garde-barrière) ---- */
+  #gate{
+    position:fixed;inset:0;z-index:9999;
+    display:flex;align-items:center;justify-content:center;flex-direction:column;
+    gap:16px;padding:24px;
+    background:radial-gradient(1200px 600px at 50% -10%, #1a2030, var(--bg));
+    padding-top:calc(24px + env(safe-area-inset-top));
+    padding-bottom:calc(24px + env(safe-area-inset-bottom));
+  }
+  #gate.hidden{display:none}
+  #gate .lock-title{
+    font-size:26px;font-weight:800;
+    background:linear-gradient(90deg,#ff8a4c,var(--hot));
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  }
+  #gate p{margin:0;color:var(--muted);font-size:14px;text-align:center}
+  #gate form{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;width:100%;max-width:340px}
+  #gatePw{
+    flex:1;min-width:180px;font:inherit;
+    background:var(--bg);color:var(--text);
+    border:1px solid var(--border);border-radius:10px;padding:12px 14px;
+  }
+  #gateErr{color:#ffb4b4;font-size:13px;min-height:18px;margin:0}
 </style>
 </head>
 <body>
+<div id="gate">
+  <div class="lock-title">MuscleMap</div>
+  <p>Accès protégé. Saisis le mot de passe pour continuer.</p>
+  <form id="gateForm">
+    <input type="password" id="gatePw" placeholder="Mot de passe" autocomplete="current-password" autofocus>
+    <button type="submit" class="primary">Entrer</button>
+  </form>
+  <p id="gateErr"></p>
+</div>
+
 <header>
   <h1>MuscleMap</h1>
   <p>Visualise ce que tu as travaillé — et ce qu'il faut retravailler.</p>
@@ -245,6 +279,40 @@
 </div>
 
 <script>
+/* ============================================================
+   Garde-barrière — mot de passe côté client
+   ------------------------------------------------------------
+   ⚠️ Hébergement statique (GitHub Pages) : ce contrôle se fait dans le
+   navigateur et reste contournable par une personne avertie. C'est un
+   garde-barrière dissuasif, pas une vraie sécurité. Les vraies données
+   restent protégées par la connexion OneDrive (Microsoft).
+   Pour changer le mot de passe : remplace GATE_HASH par le SHA-256 du
+   nouveau mot de passe (ex. en console : voir note dans GUIDE-iPhone.md).
+   ============================================================ */
+const GATE_KEY  = 'musclemap.unlocked.v1';
+const GATE_HASH = 'db875b25b06f03288326ac9783c3bce4614677825e1025bb0df84d0dc2f537c9'; // SHA-256 de « muscle »
+async function sha256hex(s){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+(function initGate(){
+  const gate = document.getElementById('gate');
+  if(localStorage.getItem(GATE_KEY) === '1'){ gate.classList.add('hidden'); return; }
+  const form = document.getElementById('gateForm');
+  const pw   = document.getElementById('gatePw');
+  const err  = document.getElementById('gateErr');
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    if((await sha256hex(pw.value)) === GATE_HASH){
+      localStorage.setItem(GATE_KEY, '1');
+      gate.classList.add('hidden');
+    } else {
+      err.textContent = 'Mot de passe incorrect.';
+      pw.value = ''; pw.focus();
+    }
+  });
+})();
+
 /* ============================================================
    MuscleMap — données & logique
    ============================================================ */
