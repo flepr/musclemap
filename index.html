@@ -203,11 +203,8 @@
 <body>
 <div id="gate">
   <div class="lock-title">MuscleMap</div>
-  <p>Accès protégé. Saisis le mot de passe pour continuer.</p>
-  <form id="gateForm">
-    <input type="password" id="gatePw" placeholder="Mot de passe" autocomplete="current-password" autofocus>
-    <button type="submit" class="primary">Entrer</button>
-  </form>
+  <p>Connecte-toi avec ton compte Microsoft pour accéder à l'application.</p>
+  <button type="button" id="gateLogin" class="primary">Se connecter avec Microsoft</button>
   <p id="gateErr"></p>
 </div>
 
@@ -280,38 +277,25 @@
 
 <script>
 /* ============================================================
-   Garde-barrière — mot de passe côté client
+   Verrou d'accès — connexion Microsoft (SSO)
    ------------------------------------------------------------
-   ⚠️ Hébergement statique (GitHub Pages) : ce contrôle se fait dans le
-   navigateur et reste contournable par une personne avertie. C'est un
-   garde-barrière dissuasif, pas une vraie sécurité. Les vraies données
-   restent protégées par la connexion OneDrive (Microsoft).
-   Pour changer le mot de passe : remplace GATE_HASH par le SHA-256 du
-   nouveau mot de passe (ex. en console : voir note dans GUIDE-iPhone.md).
+   L'app ne s'affiche qu'après une connexion Microsoft réussie (la même
+   qui donne accès à OneDrive). Tout compte Microsoft valide est accepté.
+   ⚠️ Hébergement statique : le SSO verrouille l'USAGE de l'app, pas la
+   visibilité du code source (public sur GitHub). Les données, elles,
+   restent protégées par OneDrive (chacun ne voit que son propre dossier).
+   La logique de connexion est plus bas (cloudLogin / initCloud).
    ============================================================ */
-const GATE_KEY  = 'musclemap.unlocked.v1';
-const GATE_HASH = 'db875b25b06f03288326ac9783c3bce4614677825e1025bb0df84d0dc2f537c9'; // SHA-256 de « muscle »
-async function sha256hex(s){
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
-  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+function showGate(msg){
+  const g = document.getElementById('gate');
+  if(g) g.classList.remove('hidden');
+  const e = document.getElementById('gateErr');
+  if(e) e.textContent = msg || '';
 }
-(function initGate(){
-  const gate = document.getElementById('gate');
-  if(localStorage.getItem(GATE_KEY) === '1'){ gate.classList.add('hidden'); return; }
-  const form = document.getElementById('gateForm');
-  const pw   = document.getElementById('gatePw');
-  const err  = document.getElementById('gateErr');
-  form.addEventListener('submit', async (e)=>{
-    e.preventDefault();
-    if((await sha256hex(pw.value)) === GATE_HASH){
-      localStorage.setItem(GATE_KEY, '1');
-      gate.classList.add('hidden');
-    } else {
-      err.textContent = 'Mot de passe incorrect.';
-      pw.value = ''; pw.focus();
-    }
-  });
-})();
+function unlockGate(){
+  const g = document.getElementById('gate');
+  if(g) g.classList.add('hidden');
+}
 
 /* ============================================================
    MuscleMap — données & logique
@@ -736,30 +720,40 @@ async function cloudSyncNow(){             // pull + fusion + push
     refreshUI(); cloudUI();
   }catch(e){ setSync('warn','OneDrive : synchro impossible'); }
 }
-function cloudLogout(){ cloud = {}; saveCloud(); cloudUI(); setSync('', 'OneDrive déconnecté'); }
+function cloudLogout(){
+  cloud = {}; saveCloud(); cloudUI();
+  // la déconnexion reverrouille l'app : on réaffiche l'écran de connexion
+  showGate('Déconnecté. Reconnecte-toi pour accéder à l\'application.');
+}
 
 function cloudUI(){
   const b = document.getElementById('btnCloud');
-  const out = document.getElementById('btnCloudOut');
-  if(!cloudConfigured()){ showBtn('btnCloud', false); showBtn('btnCloudOut', false); return; }
+  if(!cloudAvailable()){ showBtn('btnCloud', false); showBtn('btnCloudOut', false); return; }
   showBtn('btnCloud', true);
-  if(location.protocol === 'file:'){
-    b.textContent = '☁︎ OneDrive (héberger la page)';
-    b.disabled = true; showBtn('btnCloudOut', false); return;
-  }
   b.disabled = false;
   if(cloudConnected()){
-    b.textContent = '☁︎ Synchroniser maintenant';
+    b.textContent = '☁︎ Synchroniser';
     showBtn('btnCloudOut', true);
-    setSync('ok', 'OneDrive : synchro cloud active');
+    setSync('ok', 'OneDrive : synchro active');
   } else {
-    b.textContent = '☁︎ Connecter OneDrive';
+    b.textContent = '☁︎ Se connecter';
     showBtn('btnCloudOut', false);
   }
 }
 
 async function initCloud(){
-  if(!cloudConfigured()){ showBtn('btnCloud', false); showBtn('btnCloudOut', false); return; }
+  // bouton de l'écran de connexion (SSO)
+  const loginBtn = document.getElementById('gateLogin');
+  if(loginBtn) loginBtn.addEventListener('click', cloudLogin);
+
+  // Impossible de s'authentifier (pas de config, ou page ouverte en local file://) :
+  // on laisse entrer (aucune donnée n'est exposée — il n'y a pas de session OneDrive).
+  if(!cloudAvailable()){
+    unlockGate();
+    showBtn('btnCloud', false); showBtn('btnCloudOut', false);
+    return;
+  }
+
   document.getElementById('btnCloud').addEventListener('click', ()=> cloudConnected() ? cloudSyncNow() : cloudLogin());
   document.getElementById('btnCloudOut').addEventListener('click', cloudLogout);
 
@@ -770,15 +764,24 @@ async function initCloud(){
       if(u.searchParams.get('error')) throw new Error(u.searchParams.get('error_description') || u.searchParams.get('error'));
       if(u.searchParams.get('state') !== sessionStorage.getItem('mm_state')) throw new Error('état invalide');
       await exchangeCode(u.searchParams.get('code'));
-    }catch(e){ setSync('warn','OneDrive : connexion échouée'); }
+    }catch(e){ showGate('Connexion échouée, réessaie.'); }
     try{ history.replaceState({}, '', redirectUri()); }catch(e){}
   }
 
-  cloudUI();
-  if(cloudConnected()) await cloudSyncNow();
-  // récupère les changements faits sur un autre appareil quand on revient sur l'app
-  window.addEventListener('focus', ()=>{ if(cloudConnected()) cloudSyncNow(); });
-  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && cloudConnected()) cloudSyncNow(); });
+  // Session valide ? (jeton encore bon, ou rafraîchissable). Sinon → écran de connexion.
+  let token = null;
+  if(cloudConnected()){ try{ token = await cloudAccessToken(); }catch(e){} }
+
+  if(token){
+    unlockGate();
+    cloudUI();
+    await cloudSyncNow();
+    // récupère les changements faits sur un autre appareil quand on revient sur l'app
+    window.addEventListener('focus', ()=>{ if(cloudConnected()) cloudSyncNow(); });
+    document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && cloudConnected()) cloudSyncNow(); });
+  } else {
+    showGate();   // pas de session → l'app reste verrouillée derrière la connexion Microsoft
+  }
 }
 
 async function initSync(){
@@ -786,8 +789,12 @@ async function initSync(){
   document.getElementById('btnImport').addEventListener('click', ()=> document.getElementById('importInput').click());
   document.getElementById('importInput').addEventListener('change', e=>{ if(e.target.files[0]) importData(e.target.files[0]); e.target.value=''; });
 
-  // Synchro cloud OneDrive : disponible partout, y compris iPhone
+  // Synchro cloud OneDrive (+ verrou SSO) : disponible partout, y compris iPhone
   await initCloud();
+
+  // Quand le cloud OneDrive est configuré, c'est LE mécanisme de synchro :
+  // on n'expose pas en plus l'ancienne liaison par fichier (éviter les doublons).
+  if(cloudConfigured()) return;
 
   if(!HAS_FS){
     // iOS & navigateurs sans File System Access API : cloud OneDrive ou Export/Import
