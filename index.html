@@ -8,7 +8,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="MuscleMap">
-<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%230f1218'/%3E%3Cpath d='M90 38c-20 0-30 14-30 30 0 26 22 42 30 52 8-10 30-26 30-52 0-16-10-30-30-30z' fill='%23ff451a'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
 <title>MuscleMap — Suivi de musculation</title>
 <style>
   :root{
@@ -224,9 +226,6 @@
     <span class="sep"></span>
     <button class="small" id="btnCloud" type="button" style="display:none">☁︎ Connecter OneDrive</button>
     <button class="small ghost" id="btnCloudOut" type="button" style="display:none">Déconnecter</button>
-    <button class="small" id="btnLink" style="display:none">🔗 Lier un fichier OneDrive</button>
-    <button class="small" id="btnOpen" style="display:none">📂 Ouvrir un fichier existant</button>
-    <button class="small" id="btnReconnect" style="display:none">🔌 Reconnecter</button>
     <button class="small" id="btnExport">⬇︎ Exporter</button>
     <button class="small" id="btnImport">⬆︎ Importer</button>
     <input type="file" id="importInput" accept="application/json,.json" hidden>
@@ -437,42 +436,44 @@ let selected = new Set();
 let editingId = null;
 let decayTimer = null;
 
-/* ---- Persistance : localStorage (cache rapide) + fichier de sauvegarde ----
-   Le fichier (File System Access API) permet une mémoire robuste : placé dans
-   OneDrive, il se synchronise entre appareils et est partagé entre navigateurs
-   qui pointent vers le même fichier (Chrome/Edge). Safari/Firefox : Export/Import. */
-const HAS_FS = ('showSaveFilePicker' in window) && ('showOpenFilePicker' in window);
-let fileHandle = null;          // handle du fichier lié (si présent)
-let suppressFileWrite = false;  // évite de réécrire le fichier pendant une lecture
+/* ---- Persistance ----
+   localStorage = copie locale (rapide, fonctionne hors ligne).
+   OneDrive (plus bas) = synchro entre appareils. Exporter / Importer = sauvegarde manuelle. */
+const TOMB_TTL = 90 * 24 * 3.6e6;   // les traces de suppression sont oubliées après 90 jours
 
 function load(){
-  try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  try{ return parseData(localStorage.getItem(STORAGE_KEY)).sessions; }
   catch(e){ return []; }
 }
 function loadTombstones(){
-  try{ return JSON.parse(localStorage.getItem(TOMB_KEY)) || []; }
+  try{ const a = JSON.parse(localStorage.getItem(TOMB_KEY)); return Array.isArray(a) ? a.filter(t => t && typeof t.id === 'string') : []; }
   catch(e){ return []; }
 }
 function save(){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
-  localStorage.setItem(TOMB_KEY, JSON.stringify(tombstones));
-  if(fileHandle && !suppressFileWrite)
-    writeFile().catch(()=> setSync('warn','Écriture du fichier impossible — vérifie l’autorisation'));
-  if(cloudConnected() && !suppressCloudWrite) scheduleCloudPush();
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+    localStorage.setItem(TOMB_KEY, JSON.stringify(tombstones));
+  }catch(e){ setSync('warn', 'Stockage local indisponible sur ce navigateur'); }
+  if(cloudConnected() && !suppressCloudWrite) requestCloudSync(1200);
 }
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 
 function serialize(){
   return JSON.stringify({ app:'MuscleMap', version:2, exportedAt:new Date().toISOString(), sessions, tombstones }, null, 2);
 }
+function validSession(s){
+  return !!s && typeof s.id === 'string' && s.id !== ''
+    && typeof s.datetime === 'string' && !isNaN(new Date(s.datetime).getTime())
+    && Array.isArray(s.muscles) && s.muscles.every(m => typeof m === 'string');
+}
 function parseData(txt){
   if(!txt || !txt.trim()) return { sessions:[], tombstones:[] };
   const data = JSON.parse(txt);
-  const arrS = Array.isArray(data) ? data : (data.sessions || []);
+  const arrS = Array.isArray(data) ? data : (data && Array.isArray(data.sessions) ? data.sessions : []);
   const arrT = (data && Array.isArray(data.tombstones)) ? data.tombstones : [];
   return {
-    sessions: arrS.filter(s => s && s.id && s.datetime && Array.isArray(s.muscles)),
-    tombstones: arrT.filter(t => t && t.id).map(t => ({ id:t.id, t:(+t.t || 0) }))
+    sessions: arrS.filter(validSession),
+    tombstones: arrT.filter(t => t && typeof t.id === 'string').map(t => ({ id:t.id, t:(+t.t || 0) }))
   };
 }
 function mergeInto(incoming){
@@ -485,9 +486,13 @@ function mergeInto(incoming){
   const tmap = new Map(tombstones.map(t => [t.id, t.t || 0]));
   for(const t of (inc.tombstones || [])) tmap.set(t.id, Math.max(tmap.get(t.id) || 0, t.t || 0));
 
-  // 2) Fusion des séances : en cas de conflit, la version entrante gagne.
+  // 2) Fusion des séances : la version modifiée le plus récemment gagne
+  //    (à égalité, la version entrante — pour que tous les appareils convergent).
   const smap = new Map(sessions.map(s => [s.id, s]));
-  for(const s of (inc.sessions || [])) smap.set(s.id, s);
+  for(const s of (inc.sessions || [])){
+    const cur = smap.get(s.id);
+    if(!cur || (s.updatedAt || 0) >= (cur.updatedAt || 0)) smap.set(s.id, s);
+  }
 
   // 3) Une suppression masque la séance, sauf si celle-ci a été (re)modifiée APRÈS.
   for(const [id, t] of tmap){
@@ -495,87 +500,21 @@ function mergeInto(incoming){
     if(s && t >= (s.updatedAt || 0)) smap.delete(id);
   }
 
+  // 4) Ménage : on oublie les suppressions de plus de 90 jours.
+  const limit = Date.now() - TOMB_TTL;
+  for(const [id, t] of tmap) if(t < limit) tmap.delete(id);
+
   sessions = [...smap.values()];
   tombstones = [...tmap].map(([id, t]) => ({ id, t }));
 }
 
-/* --- IndexedDB : mémorise le handle du fichier entre les sessions --- */
-function idbDB(){
-  return new Promise((res, rej)=>{
-    const r = indexedDB.open('musclemap', 1);
-    r.onupgradeneeded = ()=> r.result.createObjectStore('kv');
-    r.onsuccess = ()=> res(r.result);
-    r.onerror = ()=> rej(r.error);
-  });
-}
-async function idbSet(k, v){ const db = await idbDB(); return new Promise((res,rej)=>{ const t=db.transaction('kv','readwrite'); t.objectStore('kv').put(v,k); t.oncomplete=res; t.onerror=()=>rej(t.error); }); }
-async function idbGet(k){ const db = await idbDB(); return new Promise((res,rej)=>{ const t=db.transaction('kv','readonly'); const g=t.objectStore('kv').get(k); g.onsuccess=()=>res(g.result); g.onerror=()=>rej(g.error); }); }
-
-async function ensurePerm(handle, request){
-  const opts = { mode:'readwrite' };
-  if((await handle.queryPermission(opts)) === 'granted') return true;
-  if(request && (await handle.requestPermission(opts)) === 'granted') return true;
-  return false;
-}
-async function writeFile(){
-  const w = await fileHandle.createWritable();
-  await w.write(serialize());
-  await w.close();
-}
-async function readFile(){
-  const f = await fileHandle.getFile();
-  return parseData(await f.text());
-}
-
-/* --- État de la barre de sauvegarde --- */
+/* --- État de la barre de synchro --- */
 function setSync(state, text){
   document.getElementById('syncDot').className = 'dot' + (state==='ok' ? ' ok' : state==='warn' ? ' warn' : '');
   document.getElementById('syncStatus').textContent = text;
 }
 function showBtn(id, show){ document.getElementById(id).style.display = show ? '' : 'none'; }
-function afterLink(){
-  setSync('ok', 'Lié à ' + fileHandle.name + ' — synchro OneDrive active');
-  showBtn('btnLink', false); showBtn('btnOpen', false); showBtn('btnReconnect', false);
-}
 function refreshUI(){ renderHistory(); if(mode==='view'){ paint(); updateInfoView(); } }
-
-async function linkNewFile(){
-  try{
-    fileHandle = await window.showSaveFilePicker({
-      suggestedName:'musclemap-data.json',
-      types:[{ description:'Données MuscleMap', accept:{'application/json':['.json']} }]
-    });
-    await idbSet('datafile', fileHandle);
-    await writeFile();
-    afterLink();
-  }catch(e){ if(e.name !== 'AbortError') setSync('warn','Liaison annulée'); }
-}
-async function openExistingFile(){
-  try{
-    const [h] = await window.showOpenFilePicker({
-      types:[{ description:'Données MuscleMap', accept:{'application/json':['.json']} }]
-    });
-    fileHandle = h;
-    await idbSet('datafile', fileHandle);
-    suppressFileWrite = true; mergeInto(await readFile()); suppressFileWrite = false;
-    save(); refreshUI(); afterLink();
-  }catch(e){ if(e.name !== 'AbortError') setSync('warn','Ouverture impossible'); }
-}
-async function reconnect(){
-  if(!fileHandle) return;
-  if(await ensurePerm(fileHandle, true)){
-    suppressFileWrite = true; mergeInto(await readFile()); suppressFileWrite = false;
-    save(); refreshUI(); afterLink();
-  } else setSync('warn','Autorisation refusée');
-}
-async function refreshFromFile(){
-  if(!fileHandle) return;
-  try{
-    if((await fileHandle.queryPermission({mode:'readwrite'})) !== 'granted') return;
-    suppressFileWrite = true; mergeInto(await readFile()); suppressFileWrite = false;
-    save(); refreshUI();
-  }catch(e){}
-}
 
 function exportData(){
   const blob = new Blob([serialize()], { type:'application/json' });
@@ -599,22 +538,19 @@ function importData(file){
 }
 
 /* ============================================================
-   Synchro cloud OneDrive (Microsoft Graph) — pour iPhone & desktop
+   Synchro cloud OneDrive (Microsoft Graph) — iPhone & desktop
    ------------------------------------------------------------
-   Sur iOS, AUCUN navigateur (Safari, Edge, Chrome) ne gère la File
-   System Access API : la synchro par fichier local est donc impossible.
-   On passe par l'API cloud OneDrive avec connexion au compte Microsoft
-   (OAuth2 + PKCE, 100 % côté navigateur, sans serveur).
+   Connexion au compte Microsoft (OAuth2 + PKCE, 100 % côté navigateur,
+   sans serveur). Les données sont dans le dossier OneDrive /Apps/MuscleMap.
 
-   ⚙️ CONFIG À REMPLIR (une seule fois — voir les instructions fournies) :
-   1. Crée une app gratuite sur https://entra.microsoft.com (ou portal.azure.com)
-      → « App registrations » → « New registration ».
-      - Nom : MuscleMap   (le dossier OneDrive utilisé sera /Apps/MuscleMap)
-      - Comptes pris en charge : « Personal Microsoft accounts only »
-      - Redirect URI → plateforme « Single-page application (SPA) »
-        = l'URL EXACTE où tu héberges cette page
-          (ex : https://tonsite.github.io/musclemap/  ou .../musclemap.html)
-   2. Copie l'« Application (client) ID » obtenu et colle-le ci-dessous.
+   ⚙️ CONFIG (déjà faite) :
+   App enregistrée sur https://entra.microsoft.com → « App registrations »
+     - Comptes pris en charge : « Personal Microsoft accounts only »
+     - Redirect URI, plateforme « Single-page application (SPA) »
+       = l'URL EXACTE de la page (https://flepr.github.io/musclemap/)
+   ⚠️ Microsoft limite à 24 h la durée de connexion des apps « SPA » :
+   au-delà, l'app tente une reconnexion silencieuse (sans clic) tant que
+   la session Microsoft du navigateur est encore ouverte.
    ============================================================ */
 const ONEDRIVE = {
   clientId: '50051d2a-7bf1-404c-9ffc-62701f17d430',
@@ -623,12 +559,17 @@ const ONEDRIVE = {
   fileName: 'musclemap-data.json'
 };
 const TOK_KEY = 'musclemap.onedrive.v1';
+const KNOWN_KEY = 'musclemap.onedrive.known';   // cet appareil s'est déjà connecté → reconnexion silencieuse permise
 let cloud = loadCloud();          // { access, expires, refresh }
 let suppressCloudWrite = false;
-let cloudPushTimer = null;
+let syncTimer = null;             // synchro programmée (regroupe les demandes rapprochées)
+let syncBusy = false;             // une synchro est en cours
+let syncAgain = false;            // une demande est arrivée pendant la synchro en cours
 
 function loadCloud(){ try{ return JSON.parse(localStorage.getItem(TOK_KEY)) || {}; }catch(e){ return {}; } }
-function saveCloud(){ localStorage.setItem(TOK_KEY, JSON.stringify(cloud)); }
+function saveCloud(){ try{ localStorage.setItem(TOK_KEY, JSON.stringify(cloud)); }catch(e){} }
+function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function lsSet(k, v){ try{ v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); }catch(e){} }
 function cloudConfigured(){ return ONEDRIVE.clientId && !/REMPLACER/.test(ONEDRIVE.clientId); }
 function cloudConnected(){ return !!(cloud && cloud.refresh); }
 function cloudAvailable(){ return cloudConfigured() && location.protocol !== 'file:'; }
@@ -639,7 +580,9 @@ function b64url(buf){ return btoa(String.fromCharCode(...new Uint8Array(buf))).r
 async function sha256(s){ return crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); }
 function randStr(n){ const a=new Uint8Array(n); crypto.getRandomValues(a); return [...a].map(x=>('0'+x.toString(16)).slice(-2)).join(''); }
 
-async function cloudLogin(){
+// silent = true : tentative sans interaction (prompt=none) ; échoue sans bruit si
+// la session Microsoft du navigateur n'est plus ouverte.
+async function cloudLogin(silent){
   if(!cloudConfigured()){ alert('OneDrive n’est pas encore configuré (Client ID manquant dans le code).'); return; }
   if(location.protocol === 'file:'){ alert('La connexion OneDrive nécessite que la page soit hébergée en ligne (https), pas ouverte en fichier local.'); return; }
   const verifier = randStr(48);
@@ -650,8 +593,9 @@ async function cloudLogin(){
   const p = new URLSearchParams({
     client_id: ONEDRIVE.clientId, response_type:'code', redirect_uri: redirectUri(),
     response_mode:'query', scope: ONEDRIVE.scopes.join(' '),
-    code_challenge: challenge, code_challenge_method:'S256', state, prompt:'select_account'
+    code_challenge: challenge, code_challenge_method:'S256', state
   });
+  if(silent === true) p.set('prompt', 'none');
   location.assign(ONEDRIVE.authority + '/oauth2/v2.0/authorize?' + p.toString());
 }
 
@@ -660,6 +604,7 @@ function applyToken(j){
   cloud.expires = Date.now() + ((j.expires_in||3600) * 1000);
   if(j.refresh_token) cloud.refresh = j.refresh_token;
   saveCloud();
+  lsSet(KNOWN_KEY, '1');
 }
 async function exchangeCode(code){
   const body = new URLSearchParams({
@@ -673,6 +618,9 @@ async function exchangeCode(code){
   if(!r.ok) throw new Error('token ' + r.status);
   applyToken(await r.json());
 }
+// Renvoie un jeton valide ; null si la session a expiré (il faut se reconnecter) ;
+// lève une erreur si Microsoft est momentanément injoignable (réseau, panne…) —
+// dans ce cas on garde la session : ce n'est pas une déconnexion.
 async function cloudAccessToken(){
   if(cloud.access && Date.now() < cloud.expires - 60000) return cloud.access;
   if(!cloud.refresh) return null;
@@ -683,15 +631,18 @@ async function cloudAccessToken(){
   const r = await fetch(ONEDRIVE.authority + '/oauth2/v2.0/token', {
     method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body
   });
-  if(!r.ok){ cloud = {}; saveCloud(); cloudUI(); return null; }
-  applyToken(await r.json());
-  return cloud.access;
+  if(r.ok){ applyToken(await r.json()); return cloud.access; }
+  if(r.status === 400 || r.status === 401){      // jeton refusé ou expiré : vraie fin de session
+    cloud = {}; saveCloud(); cloudUI(); return null;
+  }
+  throw new Error('token ' + r.status);          // 5xx, 429… : passager
 }
 
 const GRAPH_CONTENT = 'https://graph.microsoft.com/v1.0/me/drive/special/approot:/' + ONEDRIVE.fileName + ':/content';
 async function cloudReadRemote(tok){
-  const r = await fetch(GRAPH_CONTENT, { headers:{ Authorization:'Bearer ' + tok } });
+  const r = await fetch(GRAPH_CONTENT, { headers:{ Authorization:'Bearer ' + tok }, cache:'no-store' });
   if(r.status === 404) return { sessions:[], tombstones:[] };   // fichier pas encore créé
+  if(r.status === 401){ cloud.access = null; saveCloud(); }     // jeton refusé : on le renouvellera au prochain essai
   if(!r.ok) throw new Error('read ' + r.status);
   return parseData(await r.text());
 }
@@ -699,134 +650,121 @@ async function cloudWriteRemote(tok){
   const r = await fetch(GRAPH_CONTENT, {
     method:'PUT', headers:{ Authorization:'Bearer ' + tok, 'Content-Type':'application/json' }, body: serialize()
   });
+  if(r.status === 401){ cloud.access = null; saveCloud(); }
   if(!r.ok) throw new Error('write ' + r.status);
 }
 
-function scheduleCloudPush(){
-  clearTimeout(cloudPushTimer);
-  cloudPushTimer = setTimeout(async ()=>{
-    try{ const tok = await cloudAccessToken(); if(tok){ await cloudWriteRemote(tok); cloudUI(); } }
-    catch(e){ setSync('warn','OneDrive : écriture impossible'); }
-  }, 1200);
-}
-async function cloudSyncNow(){             // pull + fusion + push
+// Programme une synchro ; les demandes rapprochées (focus + retour d'onglet,
+// enregistrements successifs…) sont regroupées en une seule.
+function requestCloudSync(delay){
   if(!cloudConnected()) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(cloudSyncNow, delay || 0);
+}
+// Récupère OneDrive, fusionne, puis renvoie le résultat fusionné.
+// Toujours dans cet ordre, pour ne jamais écraser ce qu'un autre appareil a écrit.
+// Une seule synchro à la fois : une demande pendant la synchro relance un tour juste après.
+async function cloudSyncNow(){
+  if(!cloudConnected()) return;
+  if(syncBusy){ syncAgain = true; return; }
+  syncBusy = true;
+  clearTimeout(syncTimer);
   try{
     setSync('', 'OneDrive : synchronisation…');
-    const tok = await cloudAccessToken(); if(!tok) return;
+    const tok = await cloudAccessToken();
+    if(!tok){ sessionExpired(); return; }
     const remote = await cloudReadRemote(tok);
-    suppressCloudWrite = true; mergeInto(remote); save(); suppressCloudWrite = false;
+    suppressCloudWrite = true;
+    try{ mergeInto(remote); save(); } finally { suppressCloudWrite = false; }
+    refreshUI();
     await cloudWriteRemote(tok);
-    refreshUI(); cloudUI();
-  }catch(e){ setSync('warn','OneDrive : synchro impossible'); }
+    setSync('ok', 'OneDrive : synchronisé à ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}));
+  }catch(e){
+    setSync('warn', navigator.onLine === false
+      ? 'Hors ligne — séances gardées sur cet appareil, synchro au retour du réseau'
+      : 'OneDrive injoignable — séances gardées sur cet appareil, nouvel essai dans 1 min');
+    requestCloudSync(60000);
+    return;
+  }finally{
+    syncBusy = false;
+  }
+  if(syncAgain){ syncAgain = false; requestCloudSync(300); }
+}
+function sessionExpired(){
+  setSync('warn', 'Session OneDrive expirée');
+  showGate('Session expirée — reconnecte-toi.');
 }
 function cloudLogout(){
-  cloud = {}; saveCloud(); cloudUI();
+  clearTimeout(syncTimer);
+  cloud = {}; saveCloud(); lsSet(KNOWN_KEY, null); cloudUI();
   // la déconnexion reverrouille l'app : on réaffiche l'écran de connexion
   showGate('Déconnecté. Reconnecte-toi pour accéder à l\'application.');
 }
 
 function cloudUI(){
-  const b = document.getElementById('btnCloud');
   if(!cloudAvailable()){ showBtn('btnCloud', false); showBtn('btnCloudOut', false); return; }
   showBtn('btnCloud', true);
-  b.disabled = false;
-  if(cloudConnected()){
-    b.textContent = '☁︎ Synchroniser';
-    showBtn('btnCloudOut', true);
-    setSync('ok', 'OneDrive : synchro active');
-  } else {
-    b.textContent = '☁︎ Se connecter';
-    showBtn('btnCloudOut', false);
-  }
+  document.getElementById('btnCloud').textContent = cloudConnected() ? '☁︎ Synchroniser' : '☁︎ Se connecter';
+  showBtn('btnCloudOut', cloudConnected());
 }
 
 async function initCloud(){
   // bouton de l'écran de connexion (SSO)
-  const loginBtn = document.getElementById('gateLogin');
-  if(loginBtn) loginBtn.addEventListener('click', cloudLogin);
+  document.getElementById('gateLogin').addEventListener('click', ()=> cloudLogin());
 
-  // Impossible de s'authentifier (pas de config, ou page ouverte en local file://) :
+  // Impossible de s'authentifier (page ouverte en local file://) :
   // on laisse entrer (aucune donnée n'est exposée — il n'y a pas de session OneDrive).
-  if(!cloudAvailable()){
-    unlockGate();
-    showBtn('btnCloud', false); showBtn('btnCloudOut', false);
-    return;
-  }
+  if(!cloudAvailable()){ unlockGate(); cloudUI(); return; }
 
   document.getElementById('btnCloud').addEventListener('click', ()=> cloudConnected() ? cloudSyncNow() : cloudLogin());
   document.getElementById('btnCloudOut').addEventListener('click', cloudLogout);
 
-  // retour de la redirection OAuth (?code=… ou ?error=…)
+  // Retour de la redirection Microsoft (?code=… ou ?error=…)
   const u = new URL(location.href);
-  if(u.searchParams.get('code') || u.searchParams.get('error')){
-    try{
-      if(u.searchParams.get('error')) throw new Error(u.searchParams.get('error_description') || u.searchParams.get('error'));
-      if(u.searchParams.get('state') !== sessionStorage.getItem('mm_state')) throw new Error('état invalide');
-      await exchangeCode(u.searchParams.get('code'));
-    }catch(e){ showGate('Connexion échouée, réessaie.'); }
+  const code = u.searchParams.get('code'), err = u.searchParams.get('error');
+  const returning = !!(code || err);
+  if(returning){
     try{ history.replaceState({}, '', redirectUri()); }catch(e){}
+    // échec d'une reconnexion silencieuse : normal, on affiche juste le bouton
+    const silentMiss = /^(login_required|interaction_required|consent_required)$/.test(err || '');
+    try{
+      if(err) throw new Error(u.searchParams.get('error_description') || err);
+      if(u.searchParams.get('state') !== sessionStorage.getItem('mm_state')) throw new Error('état invalide');
+      await exchangeCode(code);
+    }catch(e){ showGate(silentMiss ? 'Session expirée — reconnecte-toi.' : 'Connexion échouée, réessaie.'); }
   }
 
-  // Session valide ? (jeton encore bon, ou rafraîchissable). Sinon → écran de connexion.
-  let token = null;
-  if(cloudConnected()){ try{ token = await cloudAccessToken(); }catch(e){} }
-
-  if(token){
-    unlockGate();
-    cloudUI();
-    await cloudSyncNow();
-    // récupère les changements faits sur un autre appareil quand on revient sur l'app
-    window.addEventListener('focus', ()=>{ if(cloudConnected()) cloudSyncNow(); });
-    document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && cloudConnected()) cloudSyncNow(); });
-  } else {
-    showGate();   // pas de session → l'app reste verrouillée derrière la connexion Microsoft
+  // Session valide ? 'ok' = jeton bon ; 'offline' = Microsoft injoignable mais
+  // session conservée (on entre en mode local) ; 'none' = pas de session.
+  let status = 'none';
+  if(cloudConnected()){
+    try{ status = (await cloudAccessToken()) ? 'ok' : 'none'; }
+    catch(e){ status = 'offline'; }
   }
+
+  if(status === 'none'){
+    // Appareil déjà connecté dont la session a expiré : reconnexion silencieuse.
+    // Jamais au retour d'une tentative (pas de boucle), jamais hors ligne.
+    if(!returning && lsGet(KNOWN_KEY) && navigator.onLine !== false){ cloudLogin(true); return; }
+    if(!returning) showGate();   // l'app reste verrouillée derrière la connexion Microsoft
+    return;
+  }
+
+  unlockGate();
+  cloudUI();
+  // récupère les changements faits sur un autre appareil quand on revient sur l'app
+  window.addEventListener('focus', ()=> requestCloudSync(300));
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) requestCloudSync(300); });
+  window.addEventListener('online', ()=> requestCloudSync(0));
+  await cloudSyncNow();
 }
 
 async function initSync(){
   document.getElementById('btnExport').addEventListener('click', exportData);
   document.getElementById('btnImport').addEventListener('click', ()=> document.getElementById('importInput').click());
   document.getElementById('importInput').addEventListener('change', e=>{ if(e.target.files[0]) importData(e.target.files[0]); e.target.value=''; });
-
-  // Synchro cloud OneDrive (+ verrou SSO) : disponible partout, y compris iPhone
+  if(!cloudAvailable()) setSync('', 'Stockage local du navigateur — utilise Exporter / Importer');
   await initCloud();
-
-  // Quand le cloud OneDrive est configuré, c'est LE mécanisme de synchro :
-  // on n'expose pas en plus l'ancienne liaison par fichier (éviter les doublons).
-  if(cloudConfigured()) return;
-
-  if(!HAS_FS){
-    // iOS & navigateurs sans File System Access API : cloud OneDrive ou Export/Import
-    if(!cloudConnected()){
-      setSync('', cloudAvailable()
-        ? 'iPhone : connecte OneDrive ci-dessus pour la synchro automatique (ou Exporter / Importer)'
-        : 'Stockage local — utilise Exporter / Importer (héberge la page en ligne pour activer OneDrive)');
-    }
-    return;
-  }
-  document.getElementById('btnLink').addEventListener('click', linkNewFile);
-  document.getElementById('btnOpen').addEventListener('click', openExistingFile);
-  document.getElementById('btnReconnect').addEventListener('click', reconnect);
-  showBtn('btnLink', true); showBtn('btnOpen', true);
-
-  try{
-    const saved = await idbGet('datafile');
-    if(saved){
-      fileHandle = saved;
-      if((await fileHandle.queryPermission({mode:'readwrite'})) === 'granted'){
-        suppressFileWrite = true; mergeInto(await readFile()); suppressFileWrite = false;
-        save(); refreshUI(); afterLink();
-      } else {
-        setSync('warn', 'Fichier lié : ' + fileHandle.name + ' — clique sur Reconnecter pour autoriser');
-        showBtn('btnReconnect', true); showBtn('btnLink', false); showBtn('btnOpen', false);
-      }
-    }
-  }catch(e){}
-
-  // récupère les modifications synchronisées depuis un autre appareil/navigateur
-  window.addEventListener('focus', refreshFromFile);
-  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) refreshFromFile(); });
 }
 
 /* ============================================================
@@ -894,6 +832,10 @@ function isoFromInput(v){
   return new Date(v).toISOString();
 }
 
+function esc(v){
+  return String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 function renderSelected(){
   const box = document.getElementById('selectedList');
   if(selected.size === 0){ box.innerHTML = '<span class="hint">Aucun groupe sélectionné.</span>'; return; }
@@ -908,13 +850,14 @@ function renderHistory(){
   }
   const sorted = [...sessions].sort((a,b)=> new Date(b.datetime) - new Date(a.datetime));
   list.innerHTML = sorted.map(s=>{
-    const names = s.muscles.map(m=>MUSCLE_NAMES[m]).join(', ') || '—';
+    const known = s.muscles.filter(m => MUSCLE_NAMES[m]);   // ignore les groupes inconnus (import, autre version)
+    const names = known.map(m=>MUSCLE_NAMES[m]).join(', ') || '—';
     return `<div class="session">
-      <div class="when">${fmtDate(s.datetime)}<small>${fmtTime(s.datetime)} • ${s.muscles.length} groupe(s)</small></div>
+      <div class="when">${fmtDate(s.datetime)}<small>${fmtTime(s.datetime)} • ${known.length} groupe(s)</small></div>
       <div class="muscles">${names}</div>
       <div class="ops">
-        <button class="small" data-edit="${s.id}">Modifier</button>
-        <button class="small danger" data-del="${s.id}">Supprimer</button>
+        <button class="small" data-edit="${esc(s.id)}">Modifier</button>
+        <button class="small danger" data-del="${esc(s.id)}">Supprimer</button>
       </div>
     </div>`;
   }).join('');
@@ -955,7 +898,7 @@ function enterEdit(session){
   stopDecayTimer();
   if(session){
     editingId = session.id;
-    selected = new Set(session.muscles);
+    selected = new Set(session.muscles.filter(m => MUSCLE_NAMES[m]));
     document.getElementById('dt').value = toInput(session.datetime);
     setInfo('Modification d\'une séance existante.');
   } else {
@@ -1055,6 +998,11 @@ buildFigure('back', BACK_MUSCLES, BACK_DETAILS);
 renderHistory();
 enterView();
 initSync();
+
+// Hors ligne : le service worker garde une copie de l'app pour l'ouvrir sans réseau
+if('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
 </script>
 </body>
 </html>
