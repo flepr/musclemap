@@ -42,9 +42,10 @@ RED, AMBER = (212, 42, 28), '#e8a33a'
 def heat(i):  # i = 1 tout juste travaillé -> 0 récupéré
     s = (69, 74, 82)
     return '#%02x%02x%02x' % tuple(round(a + (b - a) * i) for a, b in zip(s, RED))
-fresh, mid = heat(0.73), heat(0.40)
+big_fresh, small_fresh, mid = heat(0.73), heat(0.59), heat(0.41)   # 19,5 h /72 h, 19,5 h /48 h, 42,8 h /72 h
 HOME = {}
-for m in ['pec_haut', 'pec_mil', 'delt_ant', 'delt_lat', 'tri_lat', 'tri_long', 'tri_med']: HOME[m] = fresh
+for m in ['pec_haut', 'pec_mil']: HOME[m] = big_fresh
+for m in ['delt_ant', 'delt_lat', 'tri_lat', 'tri_long', 'tri_med']: HOME[m] = small_fresh
 for m in ['quad_ext', 'quad_droit', 'quad_int', 'fess_grand', 'fess_moy', 'adduc']: HOME[m] = mid
 for m in ['dorsal', 'grand_rond', 'lombaires', 'trap_mil', 'trap_bas', 'delt_post', 'coiffe',
           'ischio_bf', 'ischio_st', 'gastro', 'soleaire', 'pec_bas']: HOME[m] = AMBER
