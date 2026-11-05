@@ -1,0 +1,222 @@
+/* MuscleMap — textes de l'interface (français / anglais).
+   Langue « auto » : celle du téléphone si c'est le français, sinon l'anglais. */
+
+const S = {
+  fr: {
+    appTagline: 'Sache à tout moment quels muscles travailler.',
+    gateText: 'Connecte-toi avec ton compte Microsoft : tes séances sont enregistrées dans ton OneDrive.',
+    gateBtn: 'Se connecter avec Microsoft',
+    gateExpired: 'Session expirée — reconnecte-toi.',
+    gateFailed: 'Connexion échouée, réessaie.',
+    gateLoggedOut: 'Déconnecté. Reconnecte-toi pour accéder à l’application.',
+
+    tabMap: 'Carte', tabHistory: 'Historique', tabWorkout: 'Séance', tabMuscles: 'Muscles', tabSettings: 'Réglages',
+    navMain: 'Navigation principale',
+
+    syncOk: 'Synchro {t}', syncing: 'Synchro…', syncOffline: 'Hors ligne', syncError: 'OneDrive injoignable', syncLocal: 'Sur cet appareil',
+    syncOkLong: 'Synchronisé avec OneDrive à {t}',
+    syncOfflineLong: 'Hors ligne — séances gardées sur cet appareil, synchro au retour du réseau',
+    syncErrorLong: 'OneDrive injoignable — séances gardées sur cet appareil, nouvel essai dans 1 min',
+
+    lastToday: 'dernière séance aujourd’hui', lastYesterday: 'dernière séance hier', lastDays: 'dernière séance il y a {n} j', lastNone: 'aucune séance',
+    priority: 'Priorité : {x}', and: ' & ',
+    allGood: 'Tout est à jour', allGoodSub: 'Prochaine priorité : {x} dans {n} j',
+    allGoodSubNone: 'Aucun muscle à cibler pour l’instant',
+    firstTitle: 'Première séance ?', firstSub: 'Enregistre-la : la carte se remplira toute seule.',
+    viewFront: 'FACE', viewBack: 'DOS',
+    stRecover: 'En récup', stReady: 'Prêt', stTarget: 'À cibler', stOff: 'Non suivi',
+    mapLabel: 'Carte de récupération', mapHint: 'Touche un muscle pour voir sa fiche.',
+    toTarget: 'À cibler', toTargetMeta: '{n} muscles · {d} jours et +', toTargetMeta1: '1 muscle · {d} jours et +',
+    never: 'JAMAIS', days: 'JOURS', day: 'JOUR',
+    moreTargets: '+ {x}', showAll: 'Voir tout', showLess: 'Réduire',
+    nothingToTarget: 'Rien à cibler : tous les muscles suivis ont été travaillés il y a moins de {d} jours.',
+    partialDone: '{g} · le reste est à jour',
+    startWorkout: 'Démarrer une séance',
+
+    newWorkout: 'Nouvelle séance', editWorkout: 'Modifier la séance', close: 'Fermer',
+    when: 'Date et heure', counterM: '{n} muscles', counterG: '{n} groupes', counter1m: '1 muscle', counter1g: '1 groupe', minutesAgo: 'il y a {n} min',
+    counterNone: 'Touche les muscles travaillés',
+    filterAll: 'Tous', filterTarget: 'À cibler · {n}',
+    wholeGroup: 'Tout le groupe {g}', expand: 'Déplier {g}', collapse: 'Replier {g}',
+    groupAll: 'Groupe entier · {n} muscles', groupAll1: 'Groupe entier',
+    groupSome: '{k} / {n} · {list}', groupNone: '0 / {n}', groupNoneTarget: '0 / {n} · {x} à cibler · {d}',
+    notTracked: 'non suivi', today: 'aujourd’hui', yesterday: 'hier', daysAgo: '{n} j', neverShort: 'jamais',
+    save: 'Enregistrer la séance', saveEdit: 'Enregistrer les modifications', delete: 'Supprimer la séance',
+    confirmDelete: 'Supprimer cette séance ?', pickOne: 'Sélectionne au moins un muscle travaillé.',
+    saved: 'Séance enregistrée', deleted: 'Séance supprimée', undo: 'Annuler',
+
+    history: 'Historique', sessionsSince: '{n} séances au total', sessionsSince1: '1 séance au total',
+    tileSessions: 'séances · 7 j', tileGroups: 'groupes · 7 j', tileTarget: 'muscles à cibler',
+    week: 'Semaine {n}', thisWeek: 'CETTE SEMAINE', lastWeek: 'SEMAINE DERNIÈRE', weekOf: 'SEMAINE DU {d}',
+    sessionMeta: '{t} · {m} muscles · {g} groupes', options: 'Modifier la séance du {d}',
+    noSessions: 'Aucune séance enregistrée pour le moment.',
+    weekdaysShort: ['LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM', 'DIM'],
+
+    muscles: 'Muscles', musclesMeta: '13 groupes · 34 muscles', search: 'Rechercher : deltoïde, ischios, lats…', searchLabel: 'Rechercher un muscle',
+    basics: 'LES BASES', noResult: 'Aucun muscle ne correspond.',
+    role: 'Rôle', exercises: 'Exercices', track: 'Suivre ce muscle',
+    targetThese: 'Cibler {x}', targetThem: 'les muscles en retard', recordGroup: 'Ajouter à une séance',
+    lastWorked: 'Dernière fois', hoursAgo: 'il y a {n} h',
+
+    settings: 'Réglages', language: 'LANGUE', langAuto: 'Auto', langNote: '« Auto » suit la langue du téléphone. Si elle n’est ni le français ni l’anglais, l’app s’affiche en anglais.',
+    theme: 'THÈME', themeAuto: 'Auto', themeLight: 'Clair', themeDark: 'Sombre', themeNote: '« Auto » suit le réglage clair / sombre du téléphone.',
+    recovery: 'RÉCUPÉRATION ET PRIORITÉS', recSmall: 'Récup · petits muscles', recSmallSub: 'Bras, épaules, mollets, abdos, avant-bras',
+    recBig: 'Récup · gros groupes', recBigSub: 'Pecs, dos, trapèzes, jambes, fessiers', targetAfter: 'À cibler après', targetAfterSub: 'Sans travailler le muscle',
+    hUnit: '{n} h', dUnit: '{n} j', decrease: 'Diminuer', increase: 'Augmenter',
+    scaleRec: 'En récup · {a}–{b} h', scaleReady: 'Prêt', scaleTarget: 'À cibler · {d} j',
+    recommended: 'Valeurs recommandées', reset: 'Rétablir les valeurs recommandées',
+    why: 'Pourquoi ces valeurs ?',
+    why1: '<b>48 h / 72 h.</b> Après une séance, le muscle se reconstruit (synthèse des protéines) pendant 24 à 48 h. La force revient en 24 à 48 h si les séries s’arrêtent avant l’échec, plus longtemps pour les gros groupes, les séries à l’échec et les débutants.',
+    why2: '<b>5 jours.</b> Les méta-analyses conseillent de travailler chaque muscle environ 2 fois par semaine. Au-delà de 5 jours sans le travailler, on décroche de ce rythme. Ce n’est pas une perte de muscle, c’est un signal de fréquence.',
+    studies: 'Études citées',
+    workoutSec: 'SÉANCE', entryDefault: 'Saisie par défaut', entrySub: 'Groupes repliés, ou muscles détaillés d’emblée', entryGroups: 'Groupes', entryMuscles: 'Muscles',
+    tracked: 'Muscles suivis', trackedSub: 'Ceux que tu ne travailles jamais ne seront jamais « à cibler »',
+    syncSec: 'SYNCHRONISATION ET DONNÉES', onedrive: 'OneDrive', syncNow: 'Synchroniser', notConnected: 'Non connecté', connect: 'Se connecter',
+    export: 'Exporter mes données', import: 'Importer un fichier', logout: 'Se déconnecter',
+    importDone: '{n} séance(s) importée(s) et fusionnée(s).', importNone: 'Aucune séance valide trouvée dans ce fichier.', importBad: 'Fichier illisible : {e}',
+    about: 'À PROPOS', method: 'La méthode MuscleMap', methodSub: 'Groupes, seuils et sources scientifiques', version: 'Version',
+    back: 'Retour',
+    trackedTitle: 'Muscles suivis', trackedIntro: 'Décoche les muscles que tu ne veux jamais travailler : ils restent dessinés en gris et ne seront jamais « à cibler ». Ton historique est conservé.',
+    trackGroup: 'Suivre tout le groupe {g}',
+
+    onbWelcome: 'Bienvenue', onbWelcomeTitle: 'Ta carte musculaire',
+    onbWelcomeText: 'À chaque séance, note les muscles travaillés. MuscleMap te montre ensuite ceux qui récupèrent, ceux qui sont prêts et ceux à cibler en priorité.',
+    onbTrackTitle: 'Quels muscles veux-tu suivre ?',
+    onbTrackText: 'Tout est coché par défaut. Décoche ceux que tu ne travailles jamais : ils ne seront jamais « à cibler ». Tu pourras changer ça dans Réglages.',
+    onbHowTitle: 'Comment lire la carte',
+    onbHowText: 'Les couleurs reposent sur les connaissances actuelles en musculation. Les seuils sont réglables.',
+    onbRec: 'Le muscle se reconstruit : 48 h pour les petits muscles, 72 h pour les gros groupes.',
+    onbReady: 'Il peut être retravaillé.',
+    onbTarget: 'Pas travaillé depuis 5 jours ou plus : c’est la priorité.',
+    next: 'Continuer', start: 'C’est parti', skip: 'Passer',
+    step: 'Étape {n} sur {t}',
+
+    art1Eyebrow: 'VOCABULAIRE', art1Title: 'Groupe, muscle, chef, faisceau', art1Sub: 'Ce que veulent dire les noms de l’app',
+    art2Eyebrow: 'LA CARTE', art2Title: 'Récup, prêt, à cibler', art2Sub: 'Comment les couleurs sont calculées',
+    art3Eyebrow: 'LA SCIENCE', art3Title: 'Pourquoi 2 fois par semaine', art3Sub: 'Ce que disent les études',
+    art1Body: '<p>Un <b>groupe</b> rassemble des muscles qui travaillent ensemble : les pectoraux, les épaules, les ischio-jambiers…</p><p>Un <b>muscle</b> peut avoir plusieurs <b>chefs</b> : des parties qui naissent à des endroits différents puis se rejoignent sur un même tendon. Le biceps en a deux, le triceps trois.</p><p>Un <b>faisceau</b> est une portion d’un muscle dont les fibres partent dans une direction différente. Le grand pectoral en a trois (haut, milieu, bas) et le deltoïde trois (avant, latéral, arrière).</p><p>MuscleMap ne sépare deux portions que si un exercice peut vraiment en laisser une sans travail. C’est pour ça qu’il y a trois faisceaux de pecs, mais un seul grand droit pour les abdos : le crunch accentue le haut et le relevé de bassin le bas, mais aucun exercice ne les isole.</p><p>Chaque muscle porte deux noms : le nom courant de salle, et en dessous le nom anatomique.</p>',
+    art2Body: '<p><b class="c-rec">En récup</b> : le muscle a travaillé il y a moins de 48 h (petits muscles) ou 72 h (gros groupes). Le rouge pâlit à mesure qu’il récupère.</p><p><b>Prêt</b> : il peut être retravaillé.</p><p><b class="c-tgt">À cibler</b> : pas travaillé depuis 5 jours ou plus, ou jamais. C’est la priorité de ta prochaine séance.</p><p>Un groupe affiche toujours son muscle le plus en retard : si tu as fait le haut et le milieu des pecs mais pas le bas, c’est « bas des pecs » qui apparaît.</p><p>Les muscles que tu ne suis pas sont dessinés en gris neutre.</p>',
+    art3Body: '<p>Les méta-analyses de Brad Schoenfeld et ses collègues montrent qu’entraîner un muscle 2 fois par semaine fait plus progresser que 1 fois. À volume égal, la fréquence compte moins : c’est le nombre total de séries par semaine qui prime. Mais répartir ces séries sur deux séances est plus facile et plus efficace.</p><p>Avec deux séances par semaine, l’écart entre deux séances ne dépasse pas 4 jours. Au-delà de 5 jours, un muscle décroche de ce rythme : MuscleMap le signale « à cibler ».</p><p>Ce n’est pas une alerte de fonte musculaire : une semaine sans travailler un muscle ne le fait pas fondre. C’est un signal pour garder une fréquence efficace.</p>',
+
+    sort: 'Trier', more: 'Plus', ok: 'OK', cancel: 'Annuler',
+  },
+
+  en: {
+    appTagline: 'Always know which muscles to train next.',
+    gateText: 'Sign in with your Microsoft account: your workouts are saved to your OneDrive.',
+    gateBtn: 'Sign in with Microsoft',
+    gateExpired: 'Session expired — please sign in again.',
+    gateFailed: 'Sign-in failed, please try again.',
+    gateLoggedOut: 'Signed out. Sign in again to use the app.',
+
+    tabMap: 'Map', tabHistory: 'History', tabWorkout: 'Workout', tabMuscles: 'Muscles', tabSettings: 'Settings',
+    navMain: 'Main navigation',
+
+    syncOk: 'Synced {t}', syncing: 'Syncing…', syncOffline: 'Offline', syncError: 'OneDrive unreachable', syncLocal: 'On this device',
+    syncOkLong: 'Synced with OneDrive at {t}',
+    syncOfflineLong: 'Offline — workouts kept on this device, will sync when back online',
+    syncErrorLong: 'OneDrive unreachable — workouts kept on this device, retrying in 1 min',
+
+    lastToday: 'last workout today', lastYesterday: 'last workout yesterday', lastDays: 'last workout {n} days ago', lastNone: 'no workouts yet',
+    priority: 'Priority: {x}', and: ' & ',
+    allGood: 'All caught up', allGoodSub: 'Next priority: {x} in {n} d',
+    allGoodSubNone: 'No muscles to target right now',
+    firstTitle: 'First workout?', firstSub: 'Log it and the map fills itself in.',
+    viewFront: 'FRONT', viewBack: 'BACK',
+    stRecover: 'Recovering', stReady: 'Ready', stTarget: 'Target', stOff: 'Not tracked',
+    mapLabel: 'Recovery map', mapHint: 'Tap a muscle to see its details.',
+    toTarget: 'To target', toTargetMeta: '{n} muscles · {d}+ days', toTargetMeta1: '1 muscle · {d}+ days',
+    never: 'NEVER', days: 'DAYS', day: 'DAY',
+    moreTargets: '+ {x}', showAll: 'Show all', showLess: 'Show less',
+    nothingToTarget: 'Nothing to target: every tracked muscle was trained less than {d} days ago.',
+    partialDone: '{g} · the rest is up to date',
+    startWorkout: 'Start a workout',
+
+    newWorkout: 'New workout', editWorkout: 'Edit workout', close: 'Close',
+    when: 'Date and time', counterM: '{n} muscles', counterG: '{n} groups', counter1m: '1 muscle', counter1g: '1 group', minutesAgo: '{n} min ago',
+    counterNone: 'Tap the muscles you trained',
+    filterAll: 'All', filterTarget: 'To target · {n}',
+    wholeGroup: 'Whole {g} group', expand: 'Expand {g}', collapse: 'Collapse {g}',
+    groupAll: 'Whole group · {n} muscles', groupAll1: 'Whole group',
+    groupSome: '{k} / {n} · {list}', groupNone: '0 / {n}', groupNoneTarget: '0 / {n} · {x} to target · {d}',
+    notTracked: 'not tracked', today: 'today', yesterday: 'yesterday', daysAgo: '{n} d', neverShort: 'never',
+    save: 'Save workout', saveEdit: 'Save changes', delete: 'Delete workout',
+    confirmDelete: 'Delete this workout?', pickOne: 'Select at least one muscle you trained.',
+    saved: 'Workout saved', deleted: 'Workout deleted', undo: 'Undo',
+
+    history: 'History', sessionsSince: '{n} workouts in total', sessionsSince1: '1 workout in total',
+    tileSessions: 'workouts · 7 d', tileGroups: 'groups · 7 d', tileTarget: 'muscles to target',
+    week: 'Week {n}', thisWeek: 'THIS WEEK', lastWeek: 'LAST WEEK', weekOf: 'WEEK OF {d}',
+    sessionMeta: '{t} · {m} muscles · {g} groups', options: 'Edit the workout of {d}',
+    noSessions: 'No workouts logged yet.',
+    weekdaysShort: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
+
+    muscles: 'Muscles', musclesMeta: '13 groups · 34 muscles', search: 'Search: deltoid, hamstrings, lats…', searchLabel: 'Search a muscle',
+    basics: 'THE BASICS', noResult: 'No muscle matches.',
+    role: 'Role', exercises: 'Exercises', track: 'Track this muscle',
+    targetThese: 'Target {x}', targetThem: 'the lagging muscles', recordGroup: 'Add to a workout',
+    lastWorked: 'Last time', hoursAgo: '{n} h ago',
+
+    settings: 'Settings', language: 'LANGUAGE', langAuto: 'Auto', langNote: '“Auto” follows your phone’s language. If it is neither French nor English, the app is shown in English.',
+    theme: 'THEME', themeAuto: 'Auto', themeLight: 'Light', themeDark: 'Dark', themeNote: '“Auto” follows your phone’s light / dark setting.',
+    recovery: 'RECOVERY & PRIORITIES', recSmall: 'Recovery · small muscles', recSmallSub: 'Arms, shoulders, calves, abs, forearms',
+    recBig: 'Recovery · large groups', recBigSub: 'Chest, back, traps, legs, glutes', targetAfter: 'Target after', targetAfterSub: 'Without training the muscle',
+    hUnit: '{n} h', dUnit: '{n} d', decrease: 'Decrease', increase: 'Increase',
+    scaleRec: 'Recovering · {a}–{b} h', scaleReady: 'Ready', scaleTarget: 'Target · {d} d',
+    recommended: 'Recommended values', reset: 'Reset to recommended values',
+    why: 'Why these values?',
+    why1: '<b>48 h / 72 h.</b> After a workout, the muscle rebuilds itself (protein synthesis) for 24 to 48 h. Strength comes back within 24 to 48 h when sets stop short of failure, longer for large muscle groups, sets to failure and beginners.',
+    why2: '<b>5 days.</b> Meta-analyses recommend training each muscle about twice a week. After 5 days without training it, you fall behind that rhythm. It is not muscle loss, it is a frequency signal.',
+    studies: 'Studies cited',
+    workoutSec: 'WORKOUT', entryDefault: 'Default entry', entrySub: 'Collapsed groups, or detailed muscles right away', entryGroups: 'Groups', entryMuscles: 'Muscles',
+    tracked: 'Tracked muscles', trackedSub: 'Muscles you never train will never show as “to target”',
+    syncSec: 'SYNC & DATA', onedrive: 'OneDrive', syncNow: 'Sync now', notConnected: 'Not connected', connect: 'Sign in',
+    export: 'Export my data', import: 'Import a file', logout: 'Sign out',
+    importDone: '{n} workout(s) imported and merged.', importNone: 'No valid workout found in this file.', importBad: 'Unreadable file: {e}',
+    about: 'ABOUT', method: 'The MuscleMap method', methodSub: 'Groups, thresholds and scientific sources', version: 'Version',
+    back: 'Back',
+    trackedTitle: 'Tracked muscles', trackedIntro: 'Untick the muscles you never want to train: they stay drawn in grey and will never show as “to target”. Your history is kept.',
+    trackGroup: 'Track the whole {g} group',
+
+    onbWelcome: 'Welcome', onbWelcomeTitle: 'Your muscle map',
+    onbWelcomeText: 'After each workout, log the muscles you trained. MuscleMap then shows which ones are recovering, which are ready and which to target first.',
+    onbTrackTitle: 'Which muscles do you want to track?',
+    onbTrackText: 'Everything is ticked by default. Untick the ones you never train: they will never show as “to target”. You can change this in Settings.',
+    onbHowTitle: 'How to read the map',
+    onbHowText: 'The colors are based on current strength-training science. Thresholds are adjustable.',
+    onbRec: 'The muscle is rebuilding: 48 h for small muscles, 72 h for large groups.',
+    onbReady: 'It can be trained again.',
+    onbTarget: 'Not trained for 5 days or more: it is the priority.',
+    next: 'Continue', start: 'Let’s go', skip: 'Skip',
+    step: 'Step {n} of {t}',
+
+    art1Eyebrow: 'VOCABULARY', art1Title: 'Group, muscle, head', art1Sub: 'What the names in the app mean',
+    art2Eyebrow: 'THE MAP', art2Title: 'Recovering, ready, target', art2Sub: 'How the colors are computed',
+    art3Eyebrow: 'THE SCIENCE', art3Title: 'Why twice a week', art3Sub: 'What the studies say',
+    art1Body: '<p>A <b>group</b> gathers muscles that work together: chest, shoulders, hamstrings…</p><p>A <b>muscle</b> can have several <b>heads</b>: parts that start in different places and join on the same tendon. The biceps has two, the triceps three.</p><p>Some muscles also have portions whose fibers run in different directions: the pectoralis major has three (upper, mid, lower) and the deltoid three (front, side, rear).</p><p>MuscleMap only splits a muscle when an exercise can really leave one part untrained. That is why there are three chest portions but a single rectus abdominis: crunches emphasise the upper part and reverse crunches the lower part, but no exercise isolates them.</p><p>Each muscle has two names: the common gym name, and below it the anatomical name.</p>',
+    art2Body: '<p><b class="c-rec">Recovering</b>: the muscle was trained less than 48 h ago (small muscles) or 72 h ago (large groups). The red fades as it recovers.</p><p><b>Ready</b>: it can be trained again.</p><p><b class="c-tgt">Target</b>: not trained for 5 days or more, or never. It is the priority for your next workout.</p><p>A group always shows its most overdue muscle: if you trained upper and mid chest but not lower chest, “lower chest” is what appears.</p><p>Muscles you do not track are drawn in neutral grey.</p>',
+    art3Body: '<p>Meta-analyses by Brad Schoenfeld and colleagues show that training a muscle twice a week builds more muscle than once. With equal volume, frequency matters less: total weekly sets are what count. But spreading those sets over two workouts is easier and more effective.</p><p>With two workouts a week, the gap between them is at most 4 days. After 5 days, a muscle falls behind that rhythm: MuscleMap flags it as “to target”.</p><p>This is not a muscle-loss alarm: a week without training a muscle does not make it shrink. It is a signal to keep an effective frequency.</p>',
+
+    sort: 'Sort', more: 'More', ok: 'OK', cancel: 'Cancel',
+  },
+};
+
+let current = 'fr';
+export function detectLang() {
+  const langs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'en'];
+  return /^fr\b/i.test(langs[0] || '') ? 'fr' : 'en';
+}
+export function setLang(pref) { current = pref === 'fr' || pref === 'en' ? pref : detectLang(); document.documentElement.lang = current; return current; }
+export function lang() { return current; }
+export function locale() {
+  if (current === 'fr') return 'fr-FR';
+  const l = (navigator.languages || [navigator.language || 'en-US']).find(x => /^en\b/i.test(x));
+  return l || 'en-US';
+}
+export function t(key, vars) {
+  let s = (S[current] && S[current][key]) ?? S.en[key] ?? key;
+  if (vars && typeof s === 'string') s = s.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '');
+  return s;
+}
+/* Texte localisé d'un objet { fr, en } ou { fr: {...}, en: {...} } */
+export function L(obj, field) { const o = obj[current] ?? obj.en; return field ? o[field] : o; }
