@@ -7,7 +7,7 @@ import { bodyPair, groupFigure, PALETTES, heatColor } from './body.js';
 import { initSync, syncNow, login, logout, reconnect, connected, available, lastStatus, provider, providers, lastProvider } from './sync.js';
 import { isStandalone, guideHTML, installCard, startReminders, stopReminders, markSeen, promptInstall, onInstallChange, appUrl, tx } from './install.js';
 
-const VERSION = '2.6';
+const VERSION = '2.7';
 const $ = s => document.querySelector(s);
 const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const cap = s => s ? s.charAt(0).toLocaleUpperCase(locale()) + s.slice(1) : s;
@@ -81,7 +81,7 @@ function applyTheme() {
 const pal = () => PALETTES[themeName()];
 
 /* ---------- état de l'interface ---------- */
-const ui = { tab: 'map', overlay: null, sheet: null, search: '', showAll: false, unlocked: false };
+const ui = { tab: 'map', overlay: null, sheet: null, search: '', unlocked: false };
 let draft = null;   // séance en cours de saisie
 
 /* ---------- rendu général ---------- */
@@ -179,17 +179,13 @@ function viewMap() {
 
   const nMusclesTarget = list.reduce((a, it) => a + it.muscles.length, 0);
   const hasOff = state.settings.excluded.length > 0;
-  const shown = ui.showAll ? list : list.slice(0, 3);
+  // liste complète, toujours affichée (une ligne par groupe musculaire, 13 au plus)
 
-  const rows = shown.map(it => {
+  const rows = list.map(it => {
     const d = it.never ? `<b>—</b><small>${esc(t('never'))}</small>` : `<b>${Math.floor(it.days)}</b><small>${esc(Math.floor(it.days) === 1 ? t('day') : t('days'))}</small>`;
     const subTxt = it.whole ? trackedMuscles(it.group).map(mName).join(' · ') : t('partialDone', { g: gName(it.group) });
     return `<button class="trow" data-act="sheet" data-g="${it.group}"><span class="tdays">${d}</span><span class="tmain"><b>${esc(cap(targetLabel(it)))}</b><span>${esc(subTxt)}</span></span>${I.chev}</button>`;
   }).join('');
-  const rest = list.slice(3);
-  const more = !rest.length ? '' : ui.showAll
-    ? `<button class="linkbtn" data-act="showall">${esc(t('showLess'))}</button>`
-    : `<button class="linkbtn" data-act="showall">${esc(t('moreTargets', { x: rest.map(it => targetLabel(it)).join(', ') }))}</button>`;
 
   return `<div class="screen">
     <header class="hdr"><div class="wordmark">MUSCLE<span>MAP</span></div>${syncPill()}</header>
@@ -208,7 +204,7 @@ function viewMap() {
     ${pr.kind === 'first' ? `<button class="btn" data-act="workout">${esc(t('startWorkout'))}</button>` : `
     <section aria-labelledby="h-tgt" style="display:flex;flex-direction:column;gap:8px">
       <div class="sect-row"><h2 class="h2" id="h-tgt">${esc(t('toTarget'))}</h2><span class="note" style="padding:0">${esc(nMusclesTarget === 1 ? t('toTargetMeta1', { d: state.settings.targetDays }) : t('toTargetMeta', { n: nMusclesTarget, d: state.settings.targetDays }))}</span></div>
-      ${list.length ? `<div class="tlist">${rows}</div>${more}` : `<div class="empty">${esc(t('nothingToTarget', { d: state.settings.targetDays }))}</div>`}
+      ${list.length ? `<div class="tlist">${rows}</div>` : `<div class="empty">${esc(t('nothingToTarget', { d: state.settings.targetDays }))}</div>`}
     </section>`}
   </div>`;
 }
@@ -635,13 +631,12 @@ document.addEventListener('click', e => {
   if (!el) return;
   const a = el.dataset.act, d = el.dataset;
   switch (a) {
-    case 'tab': ui.tab = d.tab; ui.showAll = false; window.scrollTo(0, 0); render(); break;
+    case 'tab': ui.tab = d.tab; window.scrollTo(0, 0); render(); break;
     case 'workout': openWorkout(null); break;
     case 'workout-with': openWorkout(null, d.ms.split(',')); break;
     case 'edit': { const s = state.sessions.find(x => x.id === d.id); if (s) openWorkout(s); break; }
     case 'sheet': openSheet(d.g); break;
     case 'closesheet': closeSheet(); break;
-    case 'showall': ui.showAll = !ui.showAll; render(); break;
     case 'syncnow': syncNow(); break;
     case 'login': if (d.p) login(d.p); else showGate(''); break;
     case 'reconnect': reconnect(); break;
