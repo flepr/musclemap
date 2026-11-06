@@ -61,7 +61,7 @@ const S = {
     basics: 'LES BASES', noResult: 'Aucun muscle ne correspond.',
     role: 'Rôle', exercises: 'Exercices', track: 'Suivre ce muscle',
     targetThese: 'Travailler {x}', targetThem: 'les muscles en retard', recordGroup: 'Ajouter à une séance',
-    lastWorked: 'Dernière fois', hoursAgo: 'il y a {n} h',
+    lastWorked: 'Dernière fois', hoursAgo: 'il y a {n} h', recLeft: 'encore {n} h',
 
     settings: 'Réglages', language: 'LANGUE', langAuto: 'Auto', langNote: '« Auto » suit la langue du téléphone. Si elle n’est ni le français ni l’anglais, l’app s’affiche en anglais.',
     theme: 'THÈME', themeAuto: 'Auto', themeLight: 'Clair', themeDark: 'Sombre', themeNote: '« Auto » suit le réglage clair / sombre du téléphone.',
@@ -189,7 +189,7 @@ const S = {
     basics: 'THE BASICS', noResult: 'No muscle matches.',
     role: 'Role', exercises: 'Exercises', track: 'Track this muscle',
     targetThese: 'Target {x}', targetThem: 'the lagging muscles', recordGroup: 'Add to a workout',
-    lastWorked: 'Last time', hoursAgo: '{n} h ago',
+    lastWorked: 'Last time', hoursAgo: '{n} h ago', recLeft: '{n} h left',
 
     settings: 'Settings', language: 'LANGUAGE', langAuto: 'Auto', langNote: '“Auto” follows your phone’s language. If it is neither French nor English, the app is shown in English.',
     theme: 'THEME', themeAuto: 'Auto', themeLight: 'Light', themeDark: 'Dark', themeNote: '“Auto” follows your phone’s light / dark setting.',

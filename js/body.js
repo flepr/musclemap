@@ -117,20 +117,21 @@ export const PALETTES = {
   dark: {
     base: '#22252a', deco: '#2d3137', gap: '#16181b', steel: '#454a52', dim: '#33373d', detail: '#0e0f11',
     heat: [52, 178, 106], target: '#d42a1c', sel: '#e3361f', off: '#2d3137',
-    tones: ['#d42a1c', '#f0782e', '#f3c46b', '#9fb4c8'], hi: .16, lo: .30,
+    tones: ['#e8a33a', '#6f9ce8', '#b08ae0', '#d9cdb8'], hi: .16, lo: .30,
   },
   light: {
     base: '#d9d6d0', deco: '#cdcac4', gap: '#ffffff', steel: '#b3b8bf', dim: '#c9ccd1', detail: '#8d9198',
     heat: [33, 145, 80], target: '#c8231a', sel: '#c8231a', off: '#d3d0ca',
-    tones: ['#c8231a', '#e8691f', '#e0a93c', '#6f8aa6'], hi: .22, lo: .16,
+    tones: ['#d48a16', '#3f6fcf', '#8a5cc4', '#9c8f7a'], hi: .22, lo: .16,
   },
 };
 
 /* Couleur « en récupération » : vert intense juste après la séance (1), qui s'estompe
-   jusqu'au gris acier « prêt » (0) à la fin de la durée de récup réglée. Courbe adoucie :
-   le vert reste franc la première moitié (75 % à mi-récup) et s'efface surtout à la fin. */
+   vers le gris acier « prêt » à la fin de la durée de récup réglée. Courbe adoucie (le vert reste
+   franc la première moitié) et plancher de 35 % : tant qu'un muscle est « en récup », il reste
+   visiblement vert ; il ne devient gris qu'en passant « prêt ». */
 export function heatColor(pal, i) {
-  const s = hexRgb(pal.steel), x = Math.max(0, Math.min(1, i)), f = 1 - (1 - x) * (1 - x);
+  const s = hexRgb(pal.steel), x = Math.max(0, Math.min(1, i)), f = .35 + .65 * (1 - (1 - x) * (1 - x));
   return '#' + s.map((a, k) => Math.round(a + (pal.heat[k] - a) * f).toString(16).padStart(2, '0')).join('');
 }
 function hexRgb(h) { return [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); }

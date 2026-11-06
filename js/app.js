@@ -7,7 +7,7 @@ import { bodyPair, groupFigure, PALETTES, heatColor } from './body.js';
 import { initSync, syncNow, login, logout, reconnect, connected, available, lastStatus, provider, providers, lastProvider } from './sync.js';
 import { isStandalone, guideHTML, installCard, startReminders, stopReminders, markSeen, promptInstall, onInstallChange, appUrl, tx } from './install.js';
 
-const VERSION = '2.5';
+const VERSION = '2.6';
 const $ = s => document.querySelector(s);
 const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const cap = s => s ? s.charAt(0).toLocaleUpperCase(locale()) + s.slice(1) : s;
@@ -306,7 +306,7 @@ function renderSheet() {
     const mm = L(MUSCLES[m]);
     return `<li><span class="tone" style="background:${p.tones[i]}"></span>
       <div class="info"><b>${esc(mm.name)}</b><span class="sci">${esc(mm.sci)}</span><span class="role">${esc(mm.role)}</span><span class="ex">${esc(mm.ex)}</span></div>
-      <div class="side"><span class="lab ${cls}">${esc(lab)}</span><span class="when2">${esc(rel(st, last[m]))}</span>
+      <div class="side"><span class="lab ${cls}">${esc(lab)}</span><span class="when2">${esc(rel(st, last[m]) + (st.state === 'recover' ? ' · ' + t('recLeft', { n: Math.max(1, Math.ceil(st.rec - st.hours)) }) : ''))}</span>
         <span class="trackline"><span class="sr">${esc(t('track'))}</span><button class="switch sm" role="switch" aria-checked="${tr}" aria-label="${esc(t('track'))} : ${esc(mm.name)}" data-act="track" data-m="${m}"><i></i></button></span></div></li>`;
   }).join('');
   const late = ms.filter(m => isTracked(m) && states[m].state === 'target');

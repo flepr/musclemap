@@ -35,7 +35,7 @@ export function muscleState(m, last, now = Date.now()) {
   else if (days >= state.settings.targetDays) st = 'target';
   else st = 'ready';
   if (!tracked) st = 'off';
-  return { state: st, never: false, hours, days, intensity: hours <= 0 ? 1 : Math.max(0, 1 - hours / rec) };
+  return { state: st, never: false, hours, days, rec, intensity: hours <= 0 ? 1 : Math.max(0, 1 - hours / rec) };
 }
 
 export function allStates(now = Date.now()) {
