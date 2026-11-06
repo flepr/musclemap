@@ -2,8 +2,8 @@
    Permet d'ouvrir l'app sans réseau (salle de sport en sous-sol…).
    Stratégie « réseau d'abord » : en ligne, on sert toujours la dernière version
    publiée (et on met le cache à jour) ; hors ligne, on sert la copie en cache.
-   Les appels Microsoft (connexion, OneDrive) ne passent jamais par le cache. */
-const CACHE = 'musclemap-v5';
+   Les appels Microsoft et Google (connexion, OneDrive, Google Drive) ne passent jamais par le cache. */
+const CACHE = 'musclemap-v6';
 const ASSETS = [
   './', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png',
   './css/app.css', './js/app.js', './js/data.js', './js/i18n.js', './js/store.js', './js/logic.js', './js/body.js', './js/sync.js', './js/install.js',

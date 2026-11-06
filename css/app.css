@@ -302,6 +302,11 @@ details.why .txt b { color: var(--ink); }
 #gate .gbody svg { width: min(64vw, 240px); height: auto; }
 #gate p { margin: 0; max-width: 340px; color: var(--muted); font-size: 15px; line-height: 1.45; }
 #gate .btn { max-width: 340px; font-size: 18px; }
+#gate .ssos { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 340px; }
+.btn.sso { background: var(--surface); color: var(--ink); border: 1px solid var(--line); font-family: Barlow, sans-serif; font-weight: 600; font-size: 17px; letter-spacing: 0; text-transform: none; }
+.btn.sso svg { flex: none; }
+.plogo { display: flex; width: 24px; justify-content: center; flex: none; }
+.tmain span.acct { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #gate .err { color: var(--red-ink); min-height: 20px; font-weight: 500; }
 
 /* --- toast --- */

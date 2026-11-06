@@ -4,10 +4,10 @@ import { t, L, setLang, lang, locale } from './i18n.js';
 import { state, load, save, upsertSession, deleteSession, restoreSession, updateSettings, uid, parseData, mergeInto, serialize } from './store.js';
 import { allStates, targets, priority, nextTarget, isTracked, trackedMuscles, sessionGroups, knownMuscles } from './logic.js';
 import { bodyPair, groupFigure, PALETTES, heatColor } from './body.js';
-import { initSync, syncNow, login, logout, connected, available, lastStatus } from './sync.js';
+import { initSync, syncNow, login, logout, reconnect, connected, available, lastStatus, provider, providers, lastProvider } from './sync.js';
 import { isStandalone, guideHTML, installCard, startReminders, stopReminders, markSeen, promptInstall, onInstallChange, appUrl, tx } from './install.js';
 
-const VERSION = '2.2';
+const VERSION = '2.3';
 const $ = s => document.querySelector(s);
 const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const cap = s => s ? s.charAt(0).toLocaleUpperCase(locale()) + s.slice(1) : s;
@@ -42,6 +42,8 @@ const I = {
   ul: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3m0 0-4 4m4-4 4 4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>',
   out: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H3"/></svg>',
   flask: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6L4.5 19a1.5 1.5 0 0 0 1.3 2h12.4a1.5 1.5 0 0 0 1.3-2L14 9V3"/><path d="M7 15h10"/></svg>',
+  google: '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.6 12.3c0-.8-.1-1.6-.2-2.3H12v4.4h5.9a5 5 0 0 1-2.2 3.3v2.7h3.6c2.1-1.9 3.3-4.8 3.3-8.1z"/><path fill="#34A853" d="M12 23c3 0 5.5-1 7.3-2.7l-3.6-2.7c-1 .7-2.2 1.1-3.7 1.1-2.9 0-5.3-1.9-6.2-4.5H2.1v2.8A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.8 14.2a6.6 6.6 0 0 1 0-4.3V7.1H2.1a11 11 0 0 0 0 9.9z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3.1.6 4.2 1.7l3.2-3.2A11 11 0 0 0 2.1 7.1l3.7 2.8C6.7 7.3 9.1 5.4 12 5.4z"/></svg>',
+  microsoft: '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="#F25022" d="M2 2h9.5v9.5H2z"/><path fill="#7FBA00" d="M12.5 2H22v9.5h-9.5z"/><path fill="#00A4EF" d="M2 12.5h9.5V22H2z"/><path fill="#FFB900" d="M12.5 12.5H22V22h-9.5z"/></svg>',
   target: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>',
 };
 
@@ -109,21 +111,30 @@ function syncPill() {
   else if (s.state === 'ok') { cls = 'ok'; txt = t('syncOk', { t: fmtTime(s.at) }); }
   else if (s.state === 'syncing') { icon = I.sync; txt = t('syncing'); }
   else if (s.state === 'offline') { icon = I.cloudOff; cls = 'warn'; txt = t('syncOffline'); }
-  else if (s.state === 'error') { icon = I.cloudOff; cls = 'warn'; txt = t('syncError'); }
+  else if (s.state === 'error') { icon = I.cloudOff; cls = 'warn'; txt = t('syncError', { p: provider().name }); }
+  else if (s.state === 'reauth') { icon = I.sync; cls = 'warn'; txt = t('syncReauth'); }
   else { icon = I.cloudOff; cls = 'warn'; txt = t('syncLocal'); }
-  const long = s.state === 'ok' ? t('syncOkLong', { t: fmtTime(s.at) }) : s.state === 'offline' ? t('syncOfflineLong') : s.state === 'error' ? t('syncErrorLong') : txt;
-  return `<button class="pill ${cls}" id="syncpill" data-act="syncnow" aria-label="${esc(long)}" title="${esc(long)}">${icon}<span>${esc(txt)}</span></button>`;
+  const long = s.state === 'reauth' || s.state === 'ok' || s.state === 'offline' || s.state === 'error' ? syncLine() : txt;
+  return `<button class="pill ${cls}" id="syncpill" data-act="${s.state === 'reauth' ? 'reconnect' : 'syncnow'}" aria-label="${esc(long)}" title="${esc(long)}">${icon}<span>${esc(txt)}</span></button>`;
 }
 function updateSyncUI() {
   const p = $('#syncpill'); if (p) p.outerHTML = syncPill();
   const r = $('#syncstatus'); if (r) r.textContent = syncLine();
+  const b = $('#syncbtn'); if (b) b.outerHTML = syncBtn();
+}
+function syncBtn() {
+  return lastStatus.state === 'reauth'
+    ? `<button class="btn small acc" id="syncbtn" data-act="reconnect">${esc(t('reconnect'))}</button>`
+    : `<button class="btn small" id="syncbtn" data-act="syncnow">${esc(t('syncNow'))}</button>`;
 }
 function syncLine() {
   const s = lastStatus;
   if (!connected()) return t('notConnected');
-  if (s.state === 'ok') return t('syncOkLong', { t: fmtTime(s.at) });
+  const p = provider().name;
+  if (s.state === 'ok') return t('syncOkLong', { t: fmtTime(s.at), p });
   if (s.state === 'offline') return t('syncOfflineLong');
-  if (s.state === 'error') return t('syncErrorLong');
+  if (s.state === 'error') return t('syncErrorLong', { p });
+  if (s.state === 'reauth') return t('syncReauthLong', { a: provider().account });
   return t('syncing');
 }
 
@@ -341,9 +352,10 @@ function viewSettings() {
   const autoLangName = (navigator.languages && /^fr\b/i.test(navigator.languages[0] || navigator.language)) ? 'Français' : 'English';
   const autoThemeName = mq && mq.matches ? t('themeDark') : t('themeLight');
   const studies = STUDIES.map(x => `<li><a href="${x.url}" target="_blank" rel="noopener">${esc(x.ref)}</a> — ${esc(x[lang()])}</li>`).join('');
+  const pv = provider();
   const cloud = !available() ? '' : connected()
-    ? `<div class="srow"><span style="color:var(--ok)">${I.cloud.replace('width="16" height="16"', 'width="24" height="24"')}</span><span class="tmain"><b>${esc(t('onedrive'))}</b><span id="syncstatus">${esc(syncLine())}</span></span><button class="btn small" data-act="syncnow">${esc(t('syncNow'))}</button></div>`
-    : `<div class="srow"><span style="color:var(--amber)">${I.cloudOff.replace('width="16" height="16"', 'width="24" height="24"')}</span><span class="tmain"><b>${esc(t('onedrive'))}</b><span>${esc(t('notConnected'))}</span></span><button class="btn small" data-act="login">${esc(t('connect'))}</button></div>`;
+    ? `<div class="srow"><span class="plogo">${I[pv.id === 'google' ? 'google' : 'microsoft']}</span><span class="tmain"><b>${esc(pv.name)}</b>${pv.email() ? `<span class="acct">${esc(pv.email())}</span>` : ''}<span id="syncstatus">${esc(syncLine())}</span></span>${syncBtn()}</div>`
+    : `<div class="srow"><span style="color:var(--amber)">${I.cloudOff.replace('width="16" height="16"', 'width="24" height="24"')}</span><span class="tmain"><b>${esc(t('cloudSave'))}</b><span>${esc(t('notConnected'))}</span></span><button class="btn small" data-act="login">${esc(t('connect'))}</button></div>`;
   return `<div class="screen">
     <header class="hdr"><h1 class="h1 big">${esc(t('settings'))}</h1></header>
 
@@ -381,7 +393,8 @@ function viewSettings() {
         <button class="srow" data-act="export" style="min-height:54px"><span style="color:var(--ink-2)">${I.dl}</span><span class="tmain"><b style="font-weight:500">${esc(t('export'))}</b></span><span class="note" style="padding:0">JSON</span></button>
         <button class="srow" data-act="import" style="min-height:54px"><span style="color:var(--ink-2)">${I.ul}</span><span class="tmain"><b style="font-weight:500">${esc(t('import'))}</b></span></button>
         ${connected() ? `<button class="srow danger-txt" data-act="logout" style="min-height:54px">${I.out}<span class="tmain"><b>${esc(t('logout'))}</b></span></button>` : ''}
-      </div></section>
+      </div>
+      ${available() && providers().length > 1 ? `<p class="note">${esc(t('cloudNote'))}</p>` : ''}</section>
 
     <section style="display:flex;flex-direction:column;gap:8px"><h2 class="sect">${esc(t('instShort'))}</h2>
       <div class="group">${isStandalone()
@@ -550,11 +563,14 @@ function showGate(reason) {
   ui.unlocked = false;
   $('#app').hidden = true; closeSheet(); ui.overlay = null; renderOverlay();
   const p = pal();
-  const msg = reason === 'expired' ? t('gateExpired') : reason === 'failed' ? t('gateFailed') : reason === 'loggedOut' ? t('gateLoggedOut') : '';
+  const msg = { expired: t('gateExpired'), failed: t('gateFailed'), loggedOut: t('gateLoggedOut'), scope: t('gateScope'), cancelled: t('gateCancelled') }[reason] || '';
+  const last = lastProvider();
+  const list = providers().sort((a, b) => (b.id === last) - (a.id === last) || (a.id === 'google' ? -1 : 1));
+  const btns = list.map(pv => `<button class="btn sso" data-act="login" data-p="${pv.id}">${I[pv.id === 'google' ? 'google' : 'microsoft']}<span>${esc(t('gateWith', { a: pv.account }))}</span></button>`).join('');
   const g = $('#gate');
   g.innerHTML = `<div class="wordmark">MUSCLE<span>MAP</span></div><div class="tag">${esc(t('appTagline'))}</div>
     <div class="gbody">${bodyPair(m => ({ pec_haut: 1, pec_mil: 1, dorsal: 2, gastro: 2 }[m] === 1 ? heatColor(p, .7) : { dorsal: 1, gastro: 1 }[m] ? p.amber : p.steel), p, { label: 'MuscleMap' })}</div>
-    <p>${esc(t('gateText'))}</p><button class="btn" data-act="login">${esc(t('gateBtn'))}</button><p class="err" role="alert">${esc(msg)}</p>`;
+    <p>${esc(t(list.length > 1 ? 'gateText2' : 'gateText'))}</p><div class="ssos">${btns}</div><p class="err" role="alert">${esc(msg)}</p>`;
   g.hidden = false;
 }
 function unlock() {
@@ -623,7 +639,8 @@ document.addEventListener('click', e => {
     case 'closesheet': closeSheet(); break;
     case 'showall': ui.showAll = !ui.showAll; render(); break;
     case 'syncnow': syncNow(); break;
-    case 'login': login(); break;
+    case 'login': if (d.p) login(d.p); else showGate(''); break;
+    case 'reconnect': reconnect(); break;
     case 'logout': logout(); break;
     case 'export': exportData(); break;
     case 'import': $('#importInput').click(); break;
@@ -715,6 +732,7 @@ initSync({
   gate: reason => showGate(reason),
   unlock: () => unlock(),
   status: () => updateSyncUI(),
+  idle: () => !ui.overlay && !ui.sheet,
   data: () => { setLang(state.settings.lang); applyTheme(); if (ui.unlocked) { render(); if (ui.overlay && ui.overlay !== 'workout') renderOverlay(); } },
 }).then(ok => {
   if (ok) { if (!ui.unlocked) unlock(); maybeOnboard(); }
