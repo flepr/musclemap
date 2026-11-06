@@ -127,7 +127,9 @@ const onedrive = {
 const GG = {
   /* ID client OAuth (public par nature, ce n'est pas un secret). Vide = bouton Google masqué. */
   clientId: '480407388573-otluvjrocpka2cfe4m63hafms5lfn84v.apps.googleusercontent.com',
-  scope: 'https://www.googleapis.com/auth/drive.appdata openid email',
+  /* Un seul accès demandé (pas openid/email) : Google affiche alors un simple « Continuer »,
+     sans case à cocher. L'adresse du compte est lue ensuite via le Drive (about.user). */
+  scope: 'https://www.googleapis.com/auth/drive.appdata',
   driveScope: 'https://www.googleapis.com/auth/drive.appdata',
 };
 const GG_TOK = 'musclemap.google.v1';
@@ -145,11 +147,11 @@ const google = {
   known() { return !!this.s.ok; },
   email() { return this.s.email || ''; },
   login(silent) {
-    const st = randStr(12), nonce = randStr(12);
-    ssSet('mm_state', st); ssSet('mm_nonce', nonce); ssSet('mm_pending', 'google');
+    const st = randStr(12);
+    ssSet('mm_state', st); ssSet('mm_pending', 'google');
     const p = new URLSearchParams({
-      client_id: GG.clientId, redirect_uri: ggRedirect(), response_type: 'token id_token',
-      scope: GG.scope, state: st, nonce, include_granted_scopes: 'true',
+      client_id: GG.clientId, redirect_uri: ggRedirect(), response_type: 'token',
+      scope: GG.scope, state: st, include_granted_scopes: 'true',
     });
     if (this.s.email) p.set('login_hint', this.s.email);
     if (silent === true) { p.set('prompt', 'none'); lsSet(GG_TRY, String(Date.now())); }
@@ -163,13 +165,17 @@ const google = {
     const err = h.get('error');
     if (err) return /^(login_required|interaction_required|consent_required|account_selection_required)$/.test(err) ? 'expired' : err === 'access_denied' ? 'cancelled' : 'failed';
     if (h.get('state') !== ssGet('mm_state')) return 'failed';
-    // La personne peut décocher l'accès à Drive sur l'écran de Google : sans lui, rien à synchroniser.
+    // Sans l'accès au Drive (case décochée si Google en affiche une), rien à synchroniser.
     if (!(h.get('scope') || '').split(/\s+/).includes(GG.driveScope)) return 'scope';
-    const c = h.get('id_token') && jwtClaims(h.get('id_token'));
-    if (c && (c.aud !== GG.clientId || c.nonce !== ssGet('mm_nonce'))) return 'failed';
-    const email = c && c.email;
+    const access = h.get('access_token');
+    // Adresse du compte (affichage + reconnexion) ; sans réseau ou en cas d'échec, on s'en passe.
+    let email = '';
+    try {
+      const r = await fetch('https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)', { headers: { Authorization: 'Bearer ' + access }, cache: 'no-store' });
+      if (r.ok) email = ((await r.json()).user || {}).emailAddress || '';
+    } catch (e) {}
     if (this.s.email && email && email !== this.s.email) this.s.fileId = null;   // autre compte
-    this.s = { ...this.s, ok: true, access: h.get('access_token'), expires: Date.now() + (+h.get('expires_in') || 3600) * 1000, email: email || this.s.email || '' };
+    this.s = { ...this.s, ok: true, access, expires: Date.now() + (+h.get('expires_in') || 3600) * 1000, email: email || this.s.email || '' };
     this.save();
     return null;
   },
