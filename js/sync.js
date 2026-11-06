@@ -126,7 +126,7 @@ const onedrive = {
 /* =================== Google Drive =================== */
 const GG = {
   /* ID client OAuth (public par nature, ce n'est pas un secret). Vide = bouton Google masqué. */
-  clientId: '',
+  clientId: '480407388573-otluvjrocpka2cfe4m63hafms5lfn84v.apps.googleusercontent.com',
   scope: 'https://www.googleapis.com/auth/drive.appdata openid email',
   driveScope: 'https://www.googleapis.com/auth/drive.appdata',
 };

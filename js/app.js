@@ -405,6 +405,7 @@ function viewSettings() {
     <section style="display:flex;flex-direction:column;gap:8px"><h2 class="sect">${esc(t('about'))}</h2>
       <div class="group">
         <button class="srow" data-act="article" data-a="all"><span class="tmain"><b>${esc(t('method'))}</b><span>${esc(t('methodSub'))}</span></span>${I.chev}</button>
+        <a class="srow" href="privacy.html" style="text-decoration:none;color:inherit"><span class="tmain"><b>${esc(t('privacy'))}</b><span>${esc(t('privacySub'))}</span></span>${I.chev}</a>
         <div class="srow" style="min-height:48px;justify-content:space-between"><span class="note" style="padding:0">${esc(t('version'))}</span><span class="note" style="padding:0">${VERSION}</span></div>
       </div></section>
   </div>`;

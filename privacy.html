@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MuscleMap — Confidentialité · Privacy</title>
+<link rel="icon" href="icon-192.png">
+<meta name="color-scheme" content="light dark">
+<style>
+  @font-face { font-family: 'Barlow'; font-weight: 400; font-display: swap; src: url(fonts/barlow-latin-400-normal.woff2) format('woff2'); }
+  @font-face { font-family: 'Barlow'; font-weight: 600; font-display: swap; src: url(fonts/barlow-latin-600-normal.woff2) format('woff2'); }
+  @font-face { font-family: 'Barlow Condensed'; font-weight: 700; font-display: swap; src: url(fonts/barlow-condensed-latin-700-normal.woff2) format('woff2'); }
+  :root { --bg: #f3f1ed; --ink: #17191c; --muted: #5d636b; --red: #c8231a; --line: #ddd8d0; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #0e0f11; --ink: #f1eee8; --muted: #a3a8af; --red: #e0453a; --line: #2a2e33; } }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.55 Barlow, system-ui, sans-serif; }
+  main { max-width: 680px; margin: 0 auto; padding: calc(24px + env(safe-area-inset-top)) 20px 64px; }
+  .brand { font: 700 34px/1 'Barlow Condensed', sans-serif; letter-spacing: .06em; margin: 8px 0 4px; }
+  .brand span { color: var(--red); }
+  h2 { font: 700 26px/1.1 'Barlow Condensed', sans-serif; text-transform: uppercase; letter-spacing: .03em; margin: 28px 0 8px; }
+  h3 { font-weight: 600; font-size: 17px; margin: 22px 0 4px; }
+  p, li { margin: 6px 0; }
+  ul { padding-left: 20px; }
+  .muted { color: var(--muted); font-size: 15px; }
+  a { color: var(--red); }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 40px 0; }
+  .back { display: inline-block; font-weight: 600; text-decoration: none; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <a class="back" href="./">← MuscleMap</a>
+  <div class="brand">MUSCLE<span>MAP</span></div>
+  <p class="muted">Dernière mise à jour : 6 novembre 2026 · Last updated: 6 November 2026<br>Application de Fabien Lepère · App by Fabien Lepère</p>
+  <p class="muted"><a href="#en">English version below</a></p>
+
+  <section lang="fr">
+    <h2>Confidentialité</h2>
+    <p><b>En bref : MuscleMap n'a pas de serveur. Tes séances restent sur ton appareil et dans ton propre espace en ligne (Google Drive ou OneDrive). Personne d'autre, y compris l'auteur de l'app, n'y a accès.</b></p>
+
+    <h3>Données utilisées</h3>
+    <ul>
+      <li>Tes séances (date, heure, muscles travaillés) et tes réglages (langue, thème, seuils, muscles suivis).</li>
+      <li>L'adresse e-mail de ton compte Google ou Microsoft, uniquement pour l'afficher dans Réglages et la proposer à la reconnexion. Elle reste sur ton appareil.</li>
+    </ul>
+    <p>Pas de publicité, pas de mesure d'audience, pas de traceur, pas de revente : MuscleMap ne collecte rien pour son compte.</p>
+
+    <h3>Où sont-elles stockées ?</h3>
+    <ul>
+      <li><b>Sur ton appareil</b>, dans le stockage local du navigateur, pour que l'app marche hors ligne.</li>
+      <li><b>Dans ton espace en ligne</b>, pour retrouver tes séances sur tes autres appareils :
+        <ul>
+          <li>Google Drive : un fichier dans le dossier caché réservé à l'app. Tu ne le vois pas dans ton Drive, et MuscleMap ne peut voir aucun autre de tes fichiers (autorisation « drive.appdata »).</li>
+          <li>OneDrive : un fichier dans le dossier « Applications / MuscleMap ». MuscleMap n'accède qu'à ce dossier (autorisation « Files.ReadWrite.AppFolder »).</li>
+        </ul>
+      </li>
+    </ul>
+    <p>Les échanges se font directement entre ton appareil et Google ou Microsoft, sans intermédiaire. L'app est hébergée sur GitHub Pages, qui peut enregistrer des informations techniques de connexion (adresse IP) comme tout hébergeur web.</p>
+
+    <h3>Données Google</h3>
+    <p>L'utilisation et le transfert par MuscleMap des informations reçues des API Google respectent les <a href="https://developers.google.com/terms/api-services-user-data-policy">règles relatives aux données des utilisateurs des services API Google</a>, y compris les exigences d'utilisation limitée. Ces données servent uniquement à enregistrer et synchroniser tes séances ; elles ne sont ni partagées, ni vendues, ni utilisées pour la publicité ou pour entraîner des modèles d'IA.</p>
+
+    <h3>Supprimer tes données</h3>
+    <ul>
+      <li>Dans l'app : Réglages › Se déconnecter. Tu peux aussi exporter tes données avant.</li>
+      <li>Google Drive : sur drive.google.com, Paramètres › Gérer les applications › MuscleMap › Options › Supprimer les données d'application masquées. Pour retirer l'accès : <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>.</li>
+      <li>OneDrive : supprime le dossier « Applications / MuscleMap ». Pour retirer l'accès : <a href="https://account.live.com/consent/Manage">account.live.com/consent/Manage</a>.</li>
+      <li>Sur l'appareil : efface les données du site flepr.github.io dans les réglages du navigateur, ou supprime l'app de l'écran d'accueil.</li>
+    </ul>
+
+    <h3>Contact</h3>
+    <p>Une question ? Écris via la page du projet : <a href="https://github.com/flepr/musclemap/issues">github.com/flepr/musclemap/issues</a>.</p>
+  </section>
+
+  <hr>
+
+  <section lang="en" id="en">
+    <h2>Privacy</h2>
+    <p><b>In short: MuscleMap has no server. Your workouts stay on your device and in your own online storage (Google Drive or OneDrive). Nobody else, including the app's author, can access them.</b></p>
+
+    <h3>Data used</h3>
+    <ul>
+      <li>Your workouts (date, time, muscles trained) and your settings (language, theme, thresholds, tracked muscles).</li>
+      <li>Your Google or Microsoft account email, only to show it in Settings and to suggest it when signing in again. It stays on your device.</li>
+    </ul>
+    <p>No ads, no analytics, no trackers, no data sales: MuscleMap collects nothing for itself.</p>
+
+    <h3>Where is it stored?</h3>
+    <ul>
+      <li><b>On your device</b>, in the browser's local storage, so the app works offline.</li>
+      <li><b>In your own online storage</b>, so your workouts follow you to your other devices:
+        <ul>
+          <li>Google Drive: one file in the hidden folder reserved for the app. You don't see it in your Drive, and MuscleMap cannot see any of your other files ("drive.appdata" scope).</li>
+          <li>OneDrive: one file in the "Apps / MuscleMap" folder. MuscleMap only accesses that folder ("Files.ReadWrite.AppFolder" scope).</li>
+        </ul>
+      </li>
+    </ul>
+    <p>Data travels directly between your device and Google or Microsoft, with no middleman. The app is hosted on GitHub Pages, which, like any web host, may log technical connection data (IP address).</p>
+
+    <h3>Google user data</h3>
+    <p>MuscleMap's use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements. This data is only used to save and sync your workouts; it is never shared, sold, or used for advertising or to train AI models.</p>
+
+    <h3>Deleting your data</h3>
+    <ul>
+      <li>In the app: Settings › Sign out. You can export your data first.</li>
+      <li>Google Drive: on drive.google.com, Settings › Manage apps › MuscleMap › Options › Delete hidden app data. To remove access: <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>.</li>
+      <li>OneDrive: delete the "Apps / MuscleMap" folder. To remove access: <a href="https://account.live.com/consent/Manage">account.live.com/consent/Manage</a>.</li>
+      <li>On the device: clear the site data for flepr.github.io in your browser settings, or remove the app from your home screen.</li>
+    </ul>
+
+    <h3>Contact</h3>
+    <p>Questions? Write through the project page: <a href="https://github.com/flepr/musclemap/issues">github.com/flepr/musclemap/issues</a>.</p>
+  </section>
+</main>
+</body>
+</html>
