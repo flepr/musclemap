@@ -5,8 +5,9 @@ import { state, load, save, upsertSession, deleteSession, restoreSession, update
 import { allStates, targets, priority, nextTarget, isTracked, trackedMuscles, sessionGroups, knownMuscles } from './logic.js';
 import { bodyPair, groupFigure, PALETTES, heatColor } from './body.js';
 import { initSync, syncNow, login, logout, connected, available, lastStatus } from './sync.js';
+import { isStandalone, guideHTML, installCard, startReminders, stopReminders, markSeen, promptInstall, onInstallChange, appUrl, tx } from './install.js';
 
-const VERSION = '2.0';
+const VERSION = '2.1';
 const $ = s => document.querySelector(s);
 const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const cap = s => s ? s.charAt(0).toLocaleUpperCase(locale()) + s.slice(1) : s;
@@ -182,6 +183,7 @@ function viewMap() {
       <h1 class="h1" style="margin-top:4px">${esc(title)}</h1>
       ${sub ? `<p class="note" style="padding:6px 0 0">${esc(sub)}</p>` : ''}
     </div>
+    ${installCard()}
     <section class="card mapcard" aria-label="${esc(t('mapLabel'))}">
       <div data-bodyact="sheet">${bodyPair(mapFill(states, pal()), pal(), { interactive: true, label: t('mapLabel') })}</div>
       <div class="views"><span>${esc(t('viewFront'))}</span><span>${esc(t('viewBack'))}</span></div>
@@ -381,6 +383,12 @@ function viewSettings() {
         ${connected() ? `<button class="srow danger-txt" data-act="logout" style="min-height:54px">${I.out}<span class="tmain"><b>${esc(t('logout'))}</b></span></button>` : ''}
       </div></section>
 
+    <section style="display:flex;flex-direction:column;gap:8px"><h2 class="sect">${esc(t('instShort'))}</h2>
+      <div class="group">${isStandalone()
+        ? `<div class="srow" style="min-height:54px"><span class="okline" style="font-size:15px">${I.check}${esc(t('instInstalled'))}</span></div>`
+        : `<button class="srow" data-act="instopen"><img src="icon-192.png" alt="" width="36" height="36" style="border-radius:9px;flex:none"><span class="tmain"><b>${esc(t('instRow'))}</b><span>${esc(t('instRowSub'))}</span></span>${I.chev}</button>`}
+      </div></section>
+
     <section style="display:flex;flex-direction:column;gap:8px"><h2 class="sect">${esc(t('about'))}</h2>
       <div class="group">
         <button class="srow" data-act="article" data-a="all"><span class="tmain"><b>${esc(t('method'))}</b><span>${esc(t('methodSub'))}</span></span>${I.chev}</button>
@@ -480,21 +488,33 @@ function trackedHTML() {
     <div class="scroll"><div class="olist" style="padding:8px 16px 30px"><p class="note" style="font-size:14px">${esc(t('trackedIntro'))}</p>${trackList()}</div></div>`;
 }
 function onbHTML() {
-  const step = ui.onbStep || 1, p = pal();
+  const step = ui.onbStep || 1, p = pal(), total = ui.onbTotal || 3;
   const head = `<div class="ohdr"><span></span><h1>MUSCLE<span style="color:var(--accent)">MAP</span></h1>${step < 3 ? `<button class="iconbtn" style="width:auto;padding:0 6px;font-size:14px;font-weight:600;color:var(--muted)" data-act="onbdone">${esc(t('skip'))}</button>` : '<span></span>'}</div>`;
+  const num = n => `<div class="step">${esc(t('step', { n, t: total }))}</div>`;
   let body;
   if (step === 1) {
     const demo = { pec_haut: 1, pec_mil: 1, delt_ant: 1, tri_lat: 1, tri_long: 1, tri_med: 1, quad_ext: 2, quad_droit: 2, quad_int: 2, dorsal: 3, gastro: 3, soleaire: 3, ischio_bf: 3, ischio_st: 3 };
     const fill = m => demo[m] === 1 ? heatColor(p, .75) : demo[m] === 2 ? heatColor(p, .35) : demo[m] === 3 ? p.amber : p.steel;
-    body = `<div class="step">${esc(t('step', { n: 1, t: 3 }))}</div><h2 class="h1">${esc(t('onbWelcomeTitle'))}</h2><div class="hero">${bodyPair(fill, p, { label: t('onbWelcomeTitle') })}</div><p>${esc(t('onbWelcomeText'))}</p>`;
+    body = `${num(1)}<h2 class="h1">${esc(t('onbWelcomeTitle'))}</h2><div class="hero">${bodyPair(fill, p, { label: t('onbWelcomeTitle') })}</div><p>${esc(t('onbWelcomeText'))}</p>`;
   } else if (step === 2) {
-    body = `<div class="step">${esc(t('step', { n: 2, t: 3 }))}</div><h2 class="h1">${esc(t('onbTrackTitle'))}</h2><p>${esc(t('onbTrackText'))}</p><div>${trackList()}</div>`;
-  } else {
-    body = `<div class="step">${esc(t('step', { n: 3, t: 3 }))}</div><h2 class="h1">${esc(t('onbHowTitle'))}</h2><p>${esc(t('onbHowText'))}</p>
+    body = `${num(2)}<h2 class="h1">${esc(t('onbTrackTitle'))}</h2><p>${esc(t('onbTrackText'))}</p><div>${trackList()}</div>`;
+  } else if (step === 3) {
+    body = `${num(3)}<h2 class="h1">${esc(t('onbHowTitle'))}</h2><p>${esc(t('onbHowText'))}</p>
       <div class="card how" style="padding:16px"><div><i class="sw rec"></i><span><b>${esc(t('stRecover'))}</b><br>${esc(t('onbRec'))}</span></div><div><i class="sw ready"></i><span><b>${esc(t('stReady'))}</b><br>${esc(t('onbReady'))}</span></div><div><i class="sw tgt"></i><span><b>${esc(t('stTarget'))}</b><br>${esc(t('onbTarget'))}</span></div></div>`;
+  } else {
+    body = `${num(4)}<div class="ihero"><img src="icon-192.png" alt="" width="88" height="88"></div><h2 class="h1">${tx('instTitle')}</h2><p>${tx('instWhy')}</p>${guideHTML(ui.instTab)}`;
   }
+  const foot = step < total
+    ? `<button class="btn" data-act="onbnext">${esc(t('next'))}</button>`
+    : step === 4
+      ? `<button class="btn" data-act="onbinst">${esc(t('instDone'))}</button><button class="btn ghost" data-act="onbdone">${esc(t('instLater'))}</button><p class="note" style="text-align:center">${tx('instLaterHelp')}</p>`
+      : `<button class="btn" data-act="onbdone">${esc(t('start'))}</button>`;
   return `${head}<div class="scroll"><div class="onb">${body}</div></div>
-    <div class="ofoot"><div class="in"><button class="btn" data-act="${step < 3 ? 'onbnext' : 'onbdone'}">${esc(step < 3 ? t('next') : t('start'))}</button></div></div>`;
+    <div class="ofoot"><div class="in">${foot}</div></div>`;
+}
+function installHTML() {
+  return `<div class="ohdr"><button class="iconbtn" data-act="closeov" aria-label="${esc(t('back'))}">${I.back}</button><h1>${esc(t('instShort'))}</h1><span></span></div>
+    <div class="scroll"><div class="onb" style="padding-top:12px"><div class="ihero"><img src="icon-192.png" alt="" width="88" height="88"></div><h2 class="h1">${tx('instTitle')}</h2><p>${tx('instWhy')}</p>${guideHTML(ui.instTab)}</div></div>`;
 }
 function articleHTML(a) {
   const one = n => `<div class="eyebrow">${esc(t('art' + n + 'Eyebrow'))}</div><h2>${esc(t('art' + n + 'Title'))}</h2><div class="bodytxt">${t('art' + n + 'Body')}</div>`;
@@ -507,7 +527,7 @@ function renderOverlay() {
   const o = $('#overlay');
   if (!ui.overlay) { o.innerHTML = ''; if (!ui.sheet) document.body.classList.remove('locked'); return; }
   const prev = o.querySelector('.scroll'), y = prev ? prev.scrollTop : 0;
-  const html = ui.overlay === 'workout' ? workoutHTML() : ui.overlay === 'tracked' ? trackedHTML() : ui.overlay === 'onb' ? onbHTML() : articleHTML(ui.article);
+  const html = ui.overlay === 'workout' ? workoutHTML() : ui.overlay === 'tracked' ? trackedHTML() : ui.overlay === 'onb' ? onbHTML() : ui.overlay === 'install' ? installHTML() : articleHTML(ui.article);
   o.innerHTML = `<div class="overlay" role="dialog" aria-modal="true">${html}</div>`;
   const nx = o.querySelector('.scroll'); if (nx) nx.scrollTop = y;
 }
@@ -603,7 +623,20 @@ document.addEventListener('click', e => {
     case 'track': toggleTrack([d.m], el.getAttribute('aria-checked') !== 'true'); if (ui.overlay) renderOverlay(); if (ui.sheet) renderSheet(); render(); break;
     case 'trackg': toggleTrack(GROUPS[d.g].muscles, el.getAttribute('aria-checked') !== 'true'); renderOverlay(); render(); break;
     case 'onbnext': { ui.onbStep = (ui.onbStep || 1) + 1; renderOverlay(); const sc = $('#overlay .scroll'); if (sc) sc.scrollTop = 0; break; }
-    case 'onbdone': updateSettings({ onboarded: true }); ui.onbStep = 1; closeOverlay(); break;
+    case 'onbinst': stopReminders(); // puis comme « onbdone »
+    // falls through
+    case 'onbdone': startReminders(); updateSettings({ onboarded: true }); ui.onbStep = 1; ui.instTab = null; closeOverlay(); break;
+    /* installation sur l'écran d'accueil */
+    case 'insttab': ui.instTab = d.v; renderOverlay(); break;
+    case 'instopen': if (d.from === 'card') markSeen(); ui.instTab = null; ui.overlay = 'install'; document.body.classList.add('locked'); renderOverlay(); render(); break;
+    case 'instx': markSeen(); render(); break;
+    case 'instalready': stopReminders(); render(); break;
+    case 'instnow': promptInstall().then(ok => {
+      if (!ok) { renderOverlay(); return; }
+      if (ui.overlay === 'onb') { updateSettings({ onboarded: true }); ui.onbStep = 1; }
+      ui.instTab = null; closeOverlay(); toast(t('instThanks'));
+    }); break;
+    case 'instcopy': (navigator.clipboard ? navigator.clipboard.writeText(appUrl()) : Promise.reject()).then(() => toast(t('instCopied')), () => toast(appUrl())); break;
     case 'filter': draft.filter = d.v; renderOverlay(); break;
     case 'exp': draft.expanded.has(d.g) ? draft.expanded.delete(d.g) : draft.expanded.add(d.g); renderOverlay(); break;
     case 'tm': draft.sel.has(d.m) ? draft.sel.delete(d.m) : draft.sel.add(d.m); renderOverlay(); break;
@@ -649,8 +682,16 @@ setInterval(() => { if (ui.unlocked && !ui.overlay && !ui.sheet && (ui.tab === '
 
 /* ---------- démarrage ---------- */
 function maybeOnboard() {
-  if (ui.unlocked && !state.settings.onboarded && !ui.overlay) { ui.overlay = 'onb'; ui.onbStep = 1; document.body.classList.add('locked'); renderOverlay(); }
+  if (!ui.unlocked) return;
+  if (state.settings.onboarded) {
+    // déjà passé par l'onboarding (ou sur un autre appareil) : le calendrier des rappels d'installation part d'aujourd'hui
+    startReminders();
+    return;
+  }
+  if (!ui.overlay) { ui.overlay = 'onb'; ui.onbStep = 1; ui.onbTotal = isStandalone() ? 3 : 4; document.body.classList.add('locked'); renderOverlay(); }
 }
+/* le navigateur propose l'installation en un geste (Android, Chrome/Edge sur ordinateur) : on affiche le bouton */
+onInstallChange(() => { if (ui.overlay === 'install' || (ui.overlay === 'onb' && ui.onbStep === 4)) renderOverlay(); if (ui.unlocked) render(); });
 load();
 setLang(state.settings.lang);
 applyTheme();
