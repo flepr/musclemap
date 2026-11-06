@@ -570,7 +570,7 @@ function showGate(reason) {
   const g = $('#gate');
   g.innerHTML = `<div class="wordmark">MUSCLE<span>MAP</span></div><div class="tag">${esc(t('appTagline'))}</div>
     <div class="gbody">${bodyPair(m => ({ pec_haut: 1, pec_mil: 1, dorsal: 2, gastro: 2 }[m] === 1 ? heatColor(p, .7) : { dorsal: 1, gastro: 1 }[m] ? p.target : p.steel), p, { label: 'MuscleMap' })}</div>
-    <p>${esc(t(list.length > 1 ? 'gateText2' : 'gateText'))}</p><div class="ssos">${btns}</div><p class="err" role="alert">${esc(msg)}</p>`;
+    <p>${esc(t(list.length > 1 ? 'gateText2' : 'gateText'))}</p><div class="ssos">${btns}</div><p class="err" role="alert">${esc(msg)}</p><a class="gpriv" href="privacy.html">${esc(t('privacy'))}</a>`;
   g.hidden = false;
 }
 function unlock() {

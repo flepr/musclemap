@@ -308,6 +308,7 @@ details.why .txt b { color: var(--ink); }
 .plogo { display: flex; width: 24px; justify-content: center; flex: none; }
 .tmain span.acct { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #gate .err { color: var(--red-ink); min-height: 20px; font-weight: 500; }
+#gate .gpriv { color: var(--muted); font-size: 14px; text-decoration: underline; text-underline-offset: 3px; }
 
 /* --- toast --- */
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(96px + env(safe-area-inset-bottom)); z-index: 90; background: var(--ink); color: var(--bg); padding: 10px 14px; border-radius: 12px; font-weight: 500; font-size: 14.5px; display: flex; align-items: center; gap: 14px; max-width: 92vw; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
