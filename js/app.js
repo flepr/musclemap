@@ -4,10 +4,11 @@ import { t, L, setLang, lang, locale } from './i18n.js';
 import { state, load, save, upsertSession, deleteSession, restoreSession, updateSettings, uid, parseData, mergeInto, serialize } from './store.js';
 import { allStates, targets, priority, nextTarget, isTracked, trackedMuscles, sessionGroups, knownMuscles } from './logic.js';
 import { bodyPair, groupFigure, PALETTES, heatColor } from './body.js';
-import { initSync, syncNow, login, logout, reconnect, connected, available, lastStatus, provider, providers, lastProvider } from './sync.js';
+import { initSync, syncNow, login, logout, reconnect, connected, available, lastStatus, provider, providers, lastProvider, isLocal, useLocal } from './sync.js';
+import { backupCard, startBackupReminders, backupSeen } from './backup.js';
 import { isStandalone, guideHTML, installCard, startReminders, stopReminders, markSeen, promptInstall, onInstallChange, appUrl, tx } from './install.js';
 
-const VERSION = '2.7';
+const VERSION = '2.8';
 const $ = s => document.querySelector(s);
 const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const cap = s => s ? s.charAt(0).toLocaleUpperCase(locale()) + s.slice(1) : s;
@@ -115,7 +116,7 @@ function syncPill() {
   else if (s.state === 'reauth') { icon = I.sync; cls = 'warn'; txt = t('syncReauth'); }
   else { icon = I.cloudOff; cls = 'warn'; txt = t('syncLocal'); }
   const long = s.state === 'reauth' || s.state === 'ok' || s.state === 'offline' || s.state === 'error' ? syncLine() : txt;
-  return `<button class="pill ${cls}" id="syncpill" data-act="${s.state === 'reauth' ? 'reconnect' : 'syncnow'}" aria-label="${esc(long)}" title="${esc(long)}">${icon}<span>${esc(txt)}</span></button>`;
+  return `<button class="pill ${cls}" id="syncpill" data-act="${s.state === 'reauth' ? 'reconnect' : connected() ? 'syncnow' : 'login'}" aria-label="${esc(long)}" title="${esc(long)}">${icon}<span>${esc(txt)}</span></button>`;
 }
 function updateSyncUI() {
   const p = $('#syncpill'); if (p) p.outerHTML = syncPill();
@@ -194,7 +195,7 @@ function viewMap() {
       <h1 class="h1" style="margin-top:4px">${esc(title)}</h1>
       ${sub ? `<p class="note" style="padding:6px 0 0">${esc(sub)}</p>` : ''}
     </div>
-    ${installCard()}
+    ${reminderCard()}
     <section class="card mapcard" aria-label="${esc(t('mapLabel'))}">
       <div data-bodyact="sheet">${bodyPair(mapFill(states, pal()), pal(), { interactive: true, label: t('mapLabel') })}</div>
       <div class="views"><span>${esc(t('viewFront'))}</span><span>${esc(t('viewBack'))}</span></div>
@@ -355,7 +356,7 @@ function viewSettings() {
   const pv = provider();
   const cloud = !available() ? '' : connected()
     ? `<div class="srow"><span class="plogo">${I[pv.id === 'google' ? 'google' : 'microsoft']}</span><span class="tmain"><b>${esc(pv.name)}</b>${pv.email() ? `<span class="acct">${esc(pv.email())}</span>` : ''}<span id="syncstatus">${esc(syncLine())}</span></span>${syncBtn()}</div>`
-    : `<div class="srow"><span style="color:var(--amber)">${I.cloudOff.replace('width="16" height="16"', 'width="24" height="24"')}</span><span class="tmain"><b>${esc(t('cloudSave'))}</b><span>${esc(t('notConnected'))}</span></span><button class="btn small" data-act="login">${esc(t('connect'))}</button></div>`;
+    : `<div class="srow"><span style="color:var(--amber)">${I.cloudOff.replace('width="16" height="16"', 'width="24" height="24"')}</span><span class="tmain"><b>${esc(t('cloudSave'))}</b><span>${esc(t(isLocal() ? 'localOnly' : 'notConnected'))}</span></span><button class="btn small" data-act="login">${esc(t('connect'))}</button></div>`;
   return `<div class="screen">
     <header class="hdr"><h1 class="h1 big">${esc(t('settings'))}</h1></header>
 
@@ -558,8 +559,19 @@ function renderOverlay() {
 }
 function closeOverlay() { ui.overlay = null; draft = null; renderOverlay(); render(); }
 
+/* ---------- cartes de rappel (installation, sauvegarde) : une seule à la fois, et au plus une par jour ---------- */
+const CARD_DAY = 'musclemap.cardday';
+const today = () => new Date().toDateString();
+function cardHandled() { try { localStorage.setItem(CARD_DAY, today()); } catch (e) {} }
+function reminderCard() {
+  const inst = installCard();
+  if (inst) return inst;
+  let handled = null; try { handled = localStorage.getItem(CARD_DAY); } catch (e) {}
+  return handled === today() ? '' : backupCard();
+}
+
 /* ---------- connexion ---------- */
-function showGate(reason) {
+function showGate(reason, step) {
   ui.unlocked = false;
   $('#app').hidden = true; closeSheet(); ui.overlay = null; renderOverlay();
   const p = pal();
@@ -568,9 +580,16 @@ function showGate(reason) {
   const list = providers().sort((a, b) => (b.id === last) - (a.id === last) || (a.id === 'google' ? -1 : 1));
   const btns = list.map(pv => `<button class="btn sso" data-act="login" data-p="${pv.id}">${I[pv.id === 'google' ? 'google' : 'microsoft']}<span>${esc(t('gateWith', { a: pv.account }))}</span></button>`).join('');
   const g = $('#gate');
-  g.innerHTML = `<div class="wordmark">MUSCLE<span>MAP</span></div><div class="tag">${esc(t('appTagline'))}</div>
-    <div class="gbody">${bodyPair(m => ({ pec_haut: 1, pec_mil: 1, dorsal: 2, gastro: 2 }[m] === 1 ? heatColor(p, .7) : { dorsal: 1, gastro: 1 }[m] ? p.target : p.steel), p, { label: 'MuscleMap' })}</div>
-    <p>${esc(t(list.length > 1 ? 'gateText2' : 'gateText'))}</p><div class="ssos">${btns}</div><p class="err" role="alert">${esc(msg)}</p><a class="gpriv" href="privacy.html">${esc(t('privacy'))}</a>`;
+  const head = `<div class="wordmark">MUSCLE<span>MAP</span></div><div class="tag">${esc(t('appTagline'))}</div>`;
+  g.innerHTML = step === 'local'
+    // « Utiliser sans compte » : avertissement avant d'entrer
+    ? `${head}<div class="gwarn"><h2>${esc(t('localTitle'))}</h2><p>${esc(t('localText'))}</p>
+        ${isStandalone() ? '' : `<p class="gtip">${esc(t('localInstall'))}</p>`}</div>
+        <div class="ssos"><button class="btn" data-act="localgo">${esc(t('localGo'))}</button><button class="btn sso" data-act="localback">${esc(t('back'))}</button></div>`
+    : `${head}<div class="gbody">${bodyPair(m => ({ pec_haut: 1, pec_mil: 1, dorsal: 2, gastro: 2 }[m] === 1 ? heatColor(p, .7) : { dorsal: 1, gastro: 1 }[m] ? p.target : p.steel), p, { label: 'MuscleMap' })}</div>
+    <p>${esc(t(list.length > 1 ? 'gateText2' : 'gateText'))}</p><div class="ssos">${btns}</div>
+    <button class="glocal" data-act="localask">${esc(t('localLink'))}</button>
+    <p class="err" role="alert">${esc(msg)}</p><a class="gpriv" href="privacy.html">${esc(t('privacy'))}</a>`;
   g.hidden = false;
 }
 function unlock() {
@@ -640,6 +659,11 @@ document.addEventListener('click', e => {
     case 'syncnow': syncNow(); break;
     case 'login': if (d.p) login(d.p); else showGate(''); break;
     case 'reconnect': reconnect(); break;
+    case 'localask': if (isLocal()) useLocal(); else showGate('', 'local'); break;
+    case 'localback': showGate(''); break;
+    case 'localgo': startBackupReminders(); useLocal(); maybeOnboard(); break;
+    case 'bkx': backupSeen(); cardHandled(); render(); break;
+    case 'bkexport': backupSeen(); cardHandled(); exportData(); render(); break;
     case 'logout': logout(); break;
     case 'export': exportData(); break;
     case 'import': $('#importInput').click(); break;
@@ -661,9 +685,9 @@ document.addEventListener('click', e => {
     case 'onbdone': startReminders(); updateSettings({ onboarded: true }); ui.onbStep = 1; ui.instTab = null; closeOverlay(); break;
     /* installation sur l'écran d'accueil */
     case 'insttab': ui.instTab = d.v; renderOverlay(); break;
-    case 'instopen': if (d.from === 'card') markSeen(); ui.instTab = null; ui.overlay = 'install'; document.body.classList.add('locked'); renderOverlay(); render(); break;
-    case 'instx': markSeen(); render(); break;
-    case 'instalready': stopReminders(); render(); break;
+    case 'instopen': if (d.from === 'card') { markSeen(); cardHandled(); } ui.instTab = null; ui.overlay = 'install'; document.body.classList.add('locked'); renderOverlay(); render(); break;
+    case 'instx': markSeen(); cardHandled(); render(); break;
+    case 'instalready': stopReminders(); cardHandled(); render(); break;
     case 'instnow': promptInstall().then(ok => {
       if (!ok) { renderOverlay(); return; }
       if (ui.overlay === 'onb') { updateSettings({ onboarded: true }); ui.onbStep = 1; }
@@ -734,7 +758,7 @@ initSync({
   idle: () => !ui.overlay && !ui.sheet,
   data: () => { setLang(state.settings.lang); applyTheme(); if (ui.unlocked) { render(); if (ui.overlay && ui.overlay !== 'workout') renderOverlay(); } },
 }).then(ok => {
-  if (ok) { if (!ui.unlocked) unlock(); maybeOnboard(); }
+  if (ok) { if (!ui.unlocked) unlock(); if (isLocal()) startBackupReminders(); maybeOnboard(); }
 });
 
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {

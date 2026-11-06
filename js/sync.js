@@ -21,6 +21,7 @@ import { parseData, serialize, mergeInto, saveSilently, onSave } from './store.j
 const FILE = 'musclemap-data.json';
 const PROV_KEY = 'musclemap.provider';      // fournisseur de la session en cours
 const LAST_KEY = 'musclemap.provider.last'; // dernier utilisé (reste après déconnexion)
+const LOCAL_KEY = 'musclemap.local';         // « Utiliser sans compte » choisi sur cet appareil
 
 function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
 function lsSet(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} }
@@ -244,6 +245,10 @@ function current() { return PROVIDERS[lsGet(PROV_KEY)] || onedrive; }
 export const provider = () => current();
 export const connected = () => current().connected();
 export const available = () => location.protocol !== 'file:';
+/* Mode sans compte : séances sur cet appareil uniquement (aucune synchro) */
+export const isLocal = () => !connected() && lsGet(LOCAL_KEY) === '1';
+function keepData() { try { navigator.storage && navigator.storage.persist && navigator.storage.persist().catch(() => {}); } catch (e) {} }
+export function useLocal() { lsSet(LOCAL_KEY, '1'); keepData(); setStatus('local'); hooks.unlock(); }
 /* Dernier fournisseur utilisé (pour le mettre en premier sur l'écran de connexion) */
 export const lastProvider = () => lsGet(LAST_KEY) || lsGet(PROV_KEY) || (onedrive.known() ? 'onedrive' : '');
 
@@ -333,6 +338,7 @@ export async function initSync(h) {
     ssSet('mm_pending', null);
     lsSet(PROV_KEY, back.id); lsSet(LAST_KEY, back.id);
     err = (await back.handleReturn(u)) || '';
+    if (!err && back.connected()) lsSet(LOCAL_KEY, null);   // compte connecté : fin du mode sans compte
   }
 
   const p = current();
@@ -346,6 +352,8 @@ export async function initSync(h) {
   }
   if (status === 'none') {
     if (!returning && p.known() && navigator.onLine !== false) { login(p.id, true); return false; }
+    // Sans compte : l'app s'ouvre directement (sauf échec d'une tentative de connexion, montré sur l'écran d'accueil)
+    if (lsGet(LOCAL_KEY) === '1' && !err) { keepData(); setStatus('local'); hooks.unlock(); return true; }
     hooks.gate(err);
     return false;
   }

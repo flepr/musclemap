@@ -308,6 +308,12 @@ details.why .txt b { color: var(--ink); }
 .plogo { display: flex; width: 24px; justify-content: center; flex: none; }
 .tmain span.acct { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #gate .err { color: var(--red-ink); min-height: 20px; font-weight: 500; }
+#gate .glocal { background: none; border: 0; color: var(--ink-2); font: 600 15px Barlow, sans-serif; text-decoration: underline; text-underline-offset: 4px; padding: 6px 12px; cursor: pointer; }
+#gate .gwarn { max-width: 340px; display: flex; flex-direction: column; gap: 12px; text-align: left; }
+#gate .gwarn h2 { margin: 8px 0 0; font: 700 26px/1.1 'Barlow Condensed', sans-serif; text-transform: uppercase; letter-spacing: .03em; color: var(--ink); }
+#gate .gwarn p { color: var(--ink-2); font-size: 16px; }
+#gate .gwarn .gtip { border-left: 3px solid var(--amber); padding: 2px 0 2px 12px; }
+.bkcard .bkico { width: 48px; height: 48px; border-radius: 12px; flex: none; display: flex; align-items: center; justify-content: center; background: var(--surface-2); color: var(--amber-ink, var(--amber)); }
 #gate .gpriv { color: var(--muted); font-size: 14px; text-decoration: underline; text-underline-offset: 3px; }
 
 /* --- toast --- */

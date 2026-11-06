@@ -3,6 +3,7 @@
    à J+1, J+3, J+7, J+14 et J+21 (puis plus rien), instructions toujours dans Réglages.
    Ce module ne fait que du texte HTML et l'état des rappels ; les clics sont gérés par app.js. */
 import { t, lang } from './i18n.js';
+import { isLocal } from './sync.js';
 
 const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -72,7 +73,7 @@ const withIcons = key => tx(key).replace('{share}', ICON_SHARE).replace('{more}'
 const steps = items => `<ol class="isteps">${items.map(x => `<li>${x}</li>`).join('')}</ol>`;
 
 function iosPane() {
-  return steps([withIcons('instIos1'), tx('instIos2'), tx('instIos3'), tx('instIos4')]);
+  return steps([withIcons('instIos1'), tx('instIos2'), tx('instIos3'), tx(isLocal() ? 'instIos4Local' : 'instIos4')]);
 }
 function androidPane() {
   return `${deferred && isAndroid() ? `<button class="btn" data-act="instnow">${esc(t('instButton'))}</button><p class="note">${tx('instAndOr')}</p>` : ''}
