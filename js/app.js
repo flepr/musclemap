@@ -8,7 +8,7 @@ import { initSync, syncNow, login, logout, reconnect, connected, available, last
 import { backupCard, startBackupReminders, backupSeen } from './backup.js';
 import { isStandalone, guideHTML, installCard, startReminders, stopReminders, markSeen, promptInstall, onInstallChange, appUrl, tx, inAppBrowser, hostApp, intentUrl, isAndroid } from './install.js';
 
-const VERSION = '2.10';
+const VERSION = '2.11';
 const $ = s => document.querySelector(s);
 const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const cap = s => s ? s.charAt(0).toLocaleUpperCase(locale()) + s.slice(1) : s;
@@ -581,7 +581,7 @@ function showGate(reason, step) {
   const btns = list.map(pv => `<button class="btn sso" data-act="login" data-p="${pv.id}">${I[pv.id === 'google' ? 'google' : 'microsoft']}<span>${esc(t('gateWith', { a: pv.account }))}</span></button>`).join('');
   const g = $('#gate');
   const head = `<div class="wordmark">MUSCLE<span>MAP</span></div><div class="tag">${esc(t('appTagline'))}</div>`;
-  if (!step && inAppBrowser() && !ui.inappSkip) step = 'inapp';
+  if (!step && inAppBrowser() && !inappSkipped()) step = 'inapp';
   const dots = '<span class="kdots">•••</span>', kebab = '<span class="kdots">⋮</span>';
   const and = isAndroid(), host = hostApp() || t('inappThisApp');
   g.innerHTML = step === 'inapp'
@@ -603,7 +603,12 @@ function showGate(reason, step) {
     <p class="err" role="alert">${esc(msg)}</p><a class="gpriv" href="privacy.html">${esc(t('privacy'))}</a>`;
   g.hidden = false;
 }
+/* Navigateur intégré (Instagram…) : l'écran « Ouvre MuscleMap dans Safari » passe avant tout, même si
+   l'app pourrait s'ouvrir (connecté ou sans compte) ; « Continuer ici quand même » vaut pour la session. */
+let pendingUnlock = false;
+function inappSkipped() { try { return ui.inappSkip || sessionStorage.getItem('mm_inappskip') === '1'; } catch (e) { return !!ui.inappSkip; } }
 function unlock() {
+  if (inAppBrowser() && !inappSkipped()) { pendingUnlock = true; showGate('', 'inapp'); return; }
   ui.unlocked = true;
   $('#gate').hidden = true; $('#app').hidden = false;
   render();
@@ -670,7 +675,8 @@ document.addEventListener('click', e => {
     case 'syncnow': syncNow(); break;
     case 'login': if (d.p) login(d.p); else showGate(''); break;
     case 'reconnect': reconnect(); break;
-    case 'inappskip': ui.inappSkip = true; showGate(''); break;
+    case 'inappskip': ui.inappSkip = true; try { sessionStorage.setItem('mm_inappskip', '1'); } catch (er) {}
+      if (pendingUnlock) { pendingUnlock = false; unlock(); maybeOnboard(); } else showGate(''); break;
     case 'localask': if (isLocal()) useLocal(); else showGate('', 'local'); break;
     case 'localback': showGate(''); break;
     case 'localgo': startBackupReminders(); useLocal(); maybeOnboard(); break;
