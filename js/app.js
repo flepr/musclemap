@@ -6,9 +6,9 @@ import { allStates, targets, priority, nextTarget, isTracked, trackedMuscles, se
 import { bodyPair, groupFigure, PALETTES, heatColor } from './body.js';
 import { initSync, syncNow, login, logout, reconnect, connected, available, lastStatus, provider, providers, lastProvider, isLocal, useLocal } from './sync.js';
 import { backupCard, startBackupReminders, backupSeen } from './backup.js';
-import { isStandalone, guideHTML, installCard, startReminders, stopReminders, markSeen, promptInstall, onInstallChange, appUrl, tx } from './install.js';
+import { isStandalone, guideHTML, installCard, startReminders, stopReminders, markSeen, promptInstall, onInstallChange, appUrl, tx, inAppBrowser, hostApp, intentUrl, isAndroid } from './install.js';
 
-const VERSION = '2.8';
+const VERSION = '2.9';
 const $ = s => document.querySelector(s);
 const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const cap = s => s ? s.charAt(0).toLocaleUpperCase(locale()) + s.slice(1) : s;
@@ -581,7 +581,18 @@ function showGate(reason, step) {
   const btns = list.map(pv => `<button class="btn sso" data-act="login" data-p="${pv.id}">${I[pv.id === 'google' ? 'google' : 'microsoft']}<span>${esc(t('gateWith', { a: pv.account }))}</span></button>`).join('');
   const g = $('#gate');
   const head = `<div class="wordmark">MUSCLE<span>MAP</span></div><div class="tag">${esc(t('appTagline'))}</div>`;
-  g.innerHTML = step === 'local'
+  if (!step && inAppBrowser() && !ui.inappSkip) step = 'inapp';
+  const dots = '<span class="kdots">•••</span>', kebab = '<span class="kdots">⋮</span>';
+  const and = isAndroid(), host = hostApp() || t('inappThisApp');
+  g.innerHTML = step === 'inapp'
+    // Ouvert depuis Instagram (ou une autre appli) : Google y refuse la connexion et on ne peut pas y installer l'app
+    ? `<div class="inarrow" aria-hidden="true"><svg width="74" height="74" viewBox="0 0 74 74" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 62C20 34 36 18 62 12"/><path d="M40 10l22 2-6 21"/></svg></div>
+      ${head}<div class="gwarn ginapp"><h2>${esc(t(and ? 'inappTitleAnd' : 'inappTitle'))}</h2><p>${esc(t('inappWhy', { a: host }))}</p>
+      ${and ? `<a class="btn" href="${esc(intentUrl())}">${esc(t('inappOpenAnd'))}</a><p class="gor">${esc(t('inappOr'))}</p>` : ''}
+      <ol class="isteps"><li>${t('inappStep1', { d: and ? kebab : dots })}</li><li>${esc(t(and ? 'inappStep2And' : 'inappStep2'))}</li></ol></div>
+      <div class="ssos"><button class="btn sso" data-act="instcopy">${esc(t('instCopy'))}</button></div>
+      <button class="glocal" data-act="inappskip">${esc(t('inappStay'))}</button>`
+    : step === 'local'
     // « Utiliser sans compte » : avertissement avant d'entrer
     ? `${head}<div class="gwarn"><h2>${esc(t('localTitle'))}</h2><p>${esc(t('localText'))}</p>
         ${isStandalone() ? '' : `<p class="gtip">${esc(t('localInstall'))}</p>`}</div>
@@ -659,6 +670,7 @@ document.addEventListener('click', e => {
     case 'syncnow': syncNow(); break;
     case 'login': if (d.p) login(d.p); else showGate(''); break;
     case 'reconnect': reconnect(); break;
+    case 'inappskip': ui.inappSkip = true; showGate(''); break;
     case 'localask': if (isLocal()) useLocal(); else showGate('', 'local'); break;
     case 'localback': showGate(''); break;
     case 'localgo': startBackupReminders(); useLocal(); maybeOnboard(); break;

@@ -314,6 +314,13 @@ details.why .txt b { color: var(--ink); }
 #gate .gwarn p { color: var(--ink-2); font-size: 16px; }
 #gate .gwarn .gtip { border-left: 3px solid var(--amber); padding: 2px 0 2px 12px; }
 .bkcard .bkico { width: 48px; height: 48px; border-radius: 12px; flex: none; display: flex; align-items: center; justify-content: center; background: var(--surface-2); color: var(--amber-ink, var(--amber)); }
+#gate .ginapp ol { margin: 0; padding-left: 22px; color: var(--ink); font-size: 17px; line-height: 1.5; display: flex; flex-direction: column; gap: 8px; }
+#gate .ginapp .kdots { display: inline-block; padding: 0 8px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--line); font-weight: 700; letter-spacing: .05em; }
+#gate .ginapp .btn { text-decoration: none; display: flex; align-items: center; justify-content: center; }
+#gate .gor { text-align: center; color: var(--muted); font-size: 14px; }
+#gate .inarrow { position: fixed; top: calc(6px + env(safe-area-inset-top)); right: 14px; color: var(--amber); animation: inpoke 1.4s ease-in-out infinite; }
+@keyframes inpoke { 50% { transform: translate(4px, -4px); } }
+@media (prefers-reduced-motion: reduce) { #gate .inarrow { animation: none; } }
 #gate .gpriv { color: var(--muted); font-size: 14px; text-decoration: underline; text-underline-offset: 3px; }
 
 /* --- toast --- */
