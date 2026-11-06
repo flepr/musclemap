@@ -133,7 +133,10 @@ input, select { font: inherit; color: var(--ink); }
 .when label { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 6px 0 14px; border-radius: 19px; background: var(--surface); border: 1px solid var(--line); color: var(--ink-2); font-size: 14px; font-weight: 500; }
 .when input { border: 0; background: transparent; font: 500 15px Barlow, sans-serif; color: var(--ink); min-width: 0; padding: 4px; }
 .selbody { display: flex; flex-direction: column; align-items: center; margin-top: 8px; }
-.selbody .body { width: min(62vw, 250px); height: auto; }
+.selbody > [data-bodyact] { width: 100%; display: flex; justify-content: center; }
+.selbody .body { width: min(100%, 520px); max-height: 62vh; height: auto; touch-action: manipulation; }
+.selbody .seg.tapmode { width: calc(100% - 32px); max-width: 380px; margin-top: 10px; }
+.selbody .seg.tapmode button { min-height: 40px; }
 .count { margin-top: 6px; font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 17px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
 .count b { color: var(--accent); font-weight: 600; }
 .chips { display: flex; gap: 8px; overflow-x: auto; padding: 12px 16px 10px; scrollbar-width: none; }

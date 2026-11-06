@@ -7,7 +7,7 @@ import { bodyPair, groupFigure, PALETTES, heatColor } from './body.js';
 import { initSync, syncNow, login, logout, connected, available, lastStatus } from './sync.js';
 import { isStandalone, guideHTML, installCard, startReminders, stopReminders, markSeen, promptInstall, onInstallChange, appUrl, tx } from './install.js';
 
-const VERSION = '2.1';
+const VERSION = '2.2';
 const $ = s => document.querySelector(s);
 const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const cap = s => s ? s.charAt(0).toLocaleUpperCase(locale()) + s.slice(1) : s;
@@ -398,12 +398,21 @@ function viewSettings() {
 }
 
 /* ---------- plein écran : séance ---------- */
-function openWorkout(session, preselect) {
-  const sel = new Set(session ? knownMuscles(session.muscles) : (preselect || []));
+/* Groupes dépliés : tous en mode « muscles » ; sinon ceux qui ne sont que partiellement cochés */
+function expandedFor(sel) {
   const expanded = new Set();
   if (state.settings.entry === 'muscles') Object.keys(GROUPS).forEach(g => expanded.add(g));
   for (const m of sel) { const g = GROUP_OF[m]; if (g && GROUPS[g].muscles.some(x => !sel.has(x) && isTracked(x))) expanded.add(g); }
-  draft = { id: session ? session.id : null, original: session || null, datetime: toInput(session ? session.datetime : Date.now()), sel, expanded, filter: 'all' };
+  return expanded;
+}
+/* Coche ou décoche un groupe entier (muscles suivis seulement, sauf si aucun ne l'est) */
+function toggleGroup(g) {
+  const ms = GROUPS[g].muscles, pool = trackedMuscles(g).length ? trackedMuscles(g) : ms;
+  if (groupBox(g) === 'on') ms.forEach(m => draft.sel.delete(m)); else pool.forEach(m => draft.sel.add(m));
+}
+function openWorkout(session, preselect) {
+  const sel = new Set(session ? knownMuscles(session.muscles) : (preselect || []));
+  draft = { id: session ? session.id : null, original: session || null, datetime: toInput(session ? session.datetime : Date.now()), sel, expanded: expandedFor(sel), filter: 'all' };
   ui.overlay = 'workout';
   closeSheet();
   document.body.classList.add('locked');
@@ -450,7 +459,8 @@ function wGroup(g, states) {
 function workoutHTML() {
   const states = allStates(), p = pal();
   const nm = draft.sel.size, ng = new Set([...draft.sel].map(m => GROUP_OF[m])).size;
-  const count = nm ? `<b>${esc(nm === 1 ? t('counter1m') : t('counterM', { n: nm }))}</b> · ${esc(ng === 1 ? t('counter1g') : t('counterG', { n: ng }))}` : esc(t('counterNone'));
+  const byGroup = state.settings.entry !== 'muscles';
+  const count = nm ? `<b>${esc(nm === 1 ? t('counter1m') : t('counterM', { n: nm }))}</b> · ${esc(ng === 1 ? t('counter1g') : t('counterG', { n: ng }))}` : esc(t(byGroup ? 'counterNoneG' : 'counterNone'));
   const nTargetGroups = Object.keys(GROUPS).filter(g => trackedMuscles(g).some(m => states[m].state === 'target')).length;
   const chip = (v, label, extra = '') => `<button class="chip${extra}" data-act="filter" data-v="${v}" aria-pressed="${draft.filter === v}">${esc(label)}</button>`;
   const chips = chip('all', t('filterAll')) + (nTargetGroups ? chip('target', t('filterTarget', { n: nTargetGroups }), ' tgt') : '') + FAMILIES.map(f => chip(f.id, fName(f.id))).join('');
@@ -466,7 +476,9 @@ function workoutHTML() {
   return `<div class="ohdr"><button class="iconbtn" data-act="closeov" aria-label="${esc(t('close'))}">${I.x}</button><h1>${esc(draft.id ? t('editWorkout') : t('newWorkout'))}</h1><span></span></div>
     <div class="scroll"><div class="olist">
       <div class="when"><label>${I.cal}<span class="sr">${esc(t('when'))}</span><input type="datetime-local" id="dt" value="${esc(draft.datetime)}"></label></div>
-      <div class="selbody"><div data-bodyact="toggle">${bodyPair(fill, p, { interactive: true, label: t('counterNone') })}</div><div class="count">${count}</div></div>
+      <div class="selbody"><div data-bodyact="toggle">${bodyPair(fill, p, { interactive: true, label: t(byGroup ? 'counterNoneG' : 'counterNone') })}</div>
+        ${seg('tapmode', state.settings.entry, [{ v: 'groups', html: esc(t('tapGroups')) }, { v: 'muscles', html: esc(t('tapMuscles')) }], 'c2 tapmode')}
+        <div class="count">${count}</div></div>
       <div class="chips" role="group">${chips}</div>
       <div class="glist">${groupsHtml}</div>
       ${draft.id ? `<div style="padding:18px 16px 0"><button class="btn danger" data-act="delete">${esc(t('delete'))}</button></div>` : ''}
@@ -591,7 +603,12 @@ document.addEventListener('click', e => {
   if (tapBody) {
     const m = tapBody.dataset.m, mode = tapBody.closest('[data-bodyact]').dataset.bodyact;
     if (mode === 'sheet') openSheet(GROUP_OF[m]);
-    else if (mode === 'toggle' && draft) { draft.sel.has(m) ? draft.sel.delete(m) : draft.sel.add(m); renderOverlay(); }
+    else if (mode === 'toggle' && draft) {
+      const g = GROUP_OF[m];
+      if (state.settings.entry !== 'muscles' && g) toggleGroup(g);
+      else draft.sel.has(m) ? draft.sel.delete(m) : draft.sel.add(m);
+      renderOverlay();
+    }
     return;
   }
   const el = e.target.closest('[data-act]');
@@ -640,9 +657,8 @@ document.addEventListener('click', e => {
     case 'filter': draft.filter = d.v; renderOverlay(); break;
     case 'exp': draft.expanded.has(d.g) ? draft.expanded.delete(d.g) : draft.expanded.add(d.g); renderOverlay(); break;
     case 'tm': draft.sel.has(d.m) ? draft.sel.delete(d.m) : draft.sel.add(d.m); renderOverlay(); break;
-    case 'tg': { const ms = GROUPS[d.g].muscles, pool = trackedMuscles(d.g).length ? trackedMuscles(d.g) : ms;
-      if (groupBox(d.g) === 'on') ms.forEach(m => draft.sel.delete(m)); else pool.forEach(m => draft.sel.add(m));
-      renderOverlay(); break; }
+    case 'tg': toggleGroup(d.g); renderOverlay(); break;
+    case 'tapmode': if (state.settings.entry !== d.v) { updateSettings({ entry: d.v }); draft.expanded = expandedFor(draft.sel); renderOverlay(); render(); } break;
     case 'saveworkout': {
       const v = $('#dt') ? $('#dt').value : draft.datetime;
       if (!draft.sel.size) { toast(t('pickOne')); break; }
