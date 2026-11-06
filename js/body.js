@@ -116,20 +116,22 @@ for (const [view, list] of [['front', FRONT], ['back', BACK]])
 export const PALETTES = {
   dark: {
     base: '#22252a', deco: '#2d3137', gap: '#16181b', steel: '#454a52', dim: '#33373d', detail: '#0e0f11',
-    red: [212, 42, 28], amber: '#e8a33a', sel: '#e3361f', off: '#2d3137',
+    heat: [52, 178, 106], target: '#d42a1c', sel: '#e3361f', off: '#2d3137',
     tones: ['#d42a1c', '#f0782e', '#f3c46b', '#9fb4c8'], hi: .16, lo: .30,
   },
   light: {
     base: '#d9d6d0', deco: '#cdcac4', gap: '#ffffff', steel: '#b3b8bf', dim: '#c9ccd1', detail: '#8d9198',
-    red: [200, 35, 26], amber: '#e39a26', sel: '#c8231a', off: '#d3d0ca',
+    heat: [33, 145, 80], target: '#c8231a', sel: '#c8231a', off: '#d3d0ca',
     tones: ['#c8231a', '#e8691f', '#e0a93c', '#6f8aa6'], hi: .22, lo: .16,
   },
 };
 
-/* Couleur « en récupération » : du gris acier (0) au rouge (1) */
+/* Couleur « en récupération » : vert intense juste après la séance (1), qui s'estompe
+   jusqu'au gris acier « prêt » (0) à la fin de la durée de récup réglée. Courbe adoucie :
+   le vert reste franc la première moitié (75 % à mi-récup) et s'efface surtout à la fin. */
 export function heatColor(pal, i) {
-  const s = hexRgb(pal.steel);
-  return '#' + s.map((a, k) => Math.round(a + (pal.red[k] - a) * Math.max(0, Math.min(1, i))).toString(16).padStart(2, '0')).join('');
+  const s = hexRgb(pal.steel), x = Math.max(0, Math.min(1, i)), f = 1 - (1 - x) * (1 - x);
+  return '#' + s.map((a, k) => Math.round(a + (pal.heat[k] - a) * f).toString(16).padStart(2, '0')).join('');
 }
 function hexRgb(h) { return [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); }
 

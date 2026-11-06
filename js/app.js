@@ -145,7 +145,7 @@ function mapFill(states, p) {
     if (none) return isTracked(m) ? p.steel : p.off;
     const s = states[m];
     if (!s || s.state === 'off') return p.off;
-    if (s.state === 'target') return p.amber;
+    if (s.state === 'target') return p.target;
     if (s.state === 'recover') return heatColor(p, s.intensity);
     return p.steel;
   };
@@ -153,13 +153,18 @@ function mapFill(states, p) {
 function legend(withOff) {
   return `<div class="legend"><span><i class="sw rec"></i>${esc(t('stRecover'))}</span><span><i class="sw ready"></i>${esc(t('stReady'))}</span><span><i class="sw tgt"></i>${esc(t('stTarget'))}</span>${withOff ? `<span><i class="sw off"></i>${esc(t('stOff'))}</span>` : ''}</div>`;
 }
+/* « a », « a et b », « a, b et c », « a, b, c et 2 autres » */
+function listText(labels, more) {
+  const xs = more ? [...labels, t(more > 1 ? 'listMorePl' : 'listMore', { n: more })] : labels;
+  return xs.length < 2 ? xs.join('') : xs.slice(0, -1).join(', ') + t('listAnd') + xs[xs.length - 1];
+}
 function targetLabel(it) {
   return it.whole ? gName(it.group) : it.muscles.map(mName).join(', ');
 }
 function viewMap() {
   const states = allStates();
   const list = targets(states);
-  const pr = priority(list);
+  const pr = priority(list, (g, m) => low(g ? gName(g) : mName(m)));
   const lastTs = Math.max(0, ...state.sessions.map(s => new Date(s.datetime).getTime()));
   const dd = lastTs ? dayDiff(lastTs) : null;
   const lastTxt = !lastTs ? t('lastNone') : dd <= 0 ? t('lastToday') : dd === 1 ? t('lastYesterday') : t('lastDays', { n: dd });
@@ -170,8 +175,7 @@ function viewMap() {
     title = t('allGood');
     const nx = nextTarget(states);
     sub = nx ? t('allGoodSub', { x: low(gName(GROUP_OF[nx.m])), n: Math.max(1, Math.ceil(nx.left)) }) : t('allGoodSubNone');
-  } else if (pr.kind === 'family') title = t('priority', { x: low(fName(pr.family)) });
-  else title = t('priority', { x: pr.items.map(it => low(targetLabel(it))).join(t('and')) });
+  } else title = t('priority', { x: listText(pr.labels, pr.more) });
 
   const nMusclesTarget = list.reduce((a, it) => a + it.muscles.length, 0);
   const hasOff = state.settings.excluded.length > 0;
@@ -519,7 +523,7 @@ function onbHTML() {
   let body;
   if (step === 1) {
     const demo = { pec_haut: 1, pec_mil: 1, delt_ant: 1, tri_lat: 1, tri_long: 1, tri_med: 1, quad_ext: 2, quad_droit: 2, quad_int: 2, dorsal: 3, gastro: 3, soleaire: 3, ischio_bf: 3, ischio_st: 3 };
-    const fill = m => demo[m] === 1 ? heatColor(p, .75) : demo[m] === 2 ? heatColor(p, .35) : demo[m] === 3 ? p.amber : p.steel;
+    const fill = m => demo[m] === 1 ? heatColor(p, .75) : demo[m] === 2 ? heatColor(p, .35) : demo[m] === 3 ? p.target : p.steel;
     body = `${num(1)}<h2 class="h1">${esc(t('onbWelcomeTitle'))}</h2><div class="hero">${bodyPair(fill, p, { label: t('onbWelcomeTitle') })}</div><p>${esc(t('onbWelcomeText'))}</p>`;
   } else if (step === 2) {
     body = `${num(2)}<h2 class="h1">${esc(t('onbTrackTitle'))}</h2><p>${esc(t('onbTrackText'))}</p><div>${trackList()}</div>`;
@@ -569,7 +573,7 @@ function showGate(reason) {
   const btns = list.map(pv => `<button class="btn sso" data-act="login" data-p="${pv.id}">${I[pv.id === 'google' ? 'google' : 'microsoft']}<span>${esc(t('gateWith', { a: pv.account }))}</span></button>`).join('');
   const g = $('#gate');
   g.innerHTML = `<div class="wordmark">MUSCLE<span>MAP</span></div><div class="tag">${esc(t('appTagline'))}</div>
-    <div class="gbody">${bodyPair(m => ({ pec_haut: 1, pec_mil: 1, dorsal: 2, gastro: 2 }[m] === 1 ? heatColor(p, .7) : { dorsal: 1, gastro: 1 }[m] ? p.amber : p.steel), p, { label: 'MuscleMap' })}</div>
+    <div class="gbody">${bodyPair(m => ({ pec_haut: 1, pec_mil: 1, dorsal: 2, gastro: 2 }[m] === 1 ? heatColor(p, .7) : { dorsal: 1, gastro: 1 }[m] ? p.target : p.steel), p, { label: 'MuscleMap' })}</div>
     <p>${esc(t(list.length > 1 ? 'gateText2' : 'gateText'))}</p><div class="ssos">${btns}</div><p class="err" role="alert">${esc(msg)}</p>`;
   g.hidden = false;
 }

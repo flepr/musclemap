@@ -64,16 +64,24 @@ export function targets(states) {
   return items;
 }
 
-/* Titre « Priorité : … » — renvoie { kind, items } :
-   kind 'family' (≥ 3 groupes en retard dans la famille du plus en retard), 'items' (les 2 premiers),
-   'clear' (rien à cibler), 'first' (aucune séance). */
-export function priority(list) {
+/* Titre « Priorité : … » — renvoie { kind, labels, more } :
+   kind 'items' : ce qui est rouge sur la carte. Un groupe dont au moins la moitié des muscles suivis
+   est à travailler est nommé par le groupe (« dos », « trapèzes ») ; sinon on nomme ses muscles en
+   retard (« coiffe des rotateurs »). Les groupes passent avant les muscles isolés ; à égalité,
+   « jamais » d'abord puis le plus en retard. Pas de nom de famille générique (« haut du corps ») :
+   il englobait des muscles déjà travaillés. Jusqu'à 4 noms ; au-delà, 3 noms puis « et N autres ».
+   kind 'clear' (rien à travailler), 'first' (aucune séance). */
+export function priority(list, label) {
   if (!state.sessions.length) return { kind: 'first' };
   if (!list.length) return { kind: 'clear' };
-  const top = list[0];
-  const sameFamily = list.filter(x => x.family === top.family).length;
-  if (sameFamily >= 3) return { kind: 'family', family: top.family };
-  return { kind: 'items', items: list.slice(0, 2) };
+  const groups = [], singles = [];
+  for (const it of list) {
+    if (it.whole || it.muscles.length * 2 >= trackedMuscles(it.group).length) groups.push(label(it.group, null));
+    else for (const m of it.muscles) singles.push(label(null, m));
+  }
+  const names = [...groups, ...singles];
+  const n = names.length <= 4 ? names.length : 3;   // jamais « et 1 autre » : on écrit le 4e nom
+  return { kind: 'items', labels: names.slice(0, n), more: names.length - n };
 }
 
 /* Prochain muscle qui passera « à cibler » (quand rien ne l'est) */
