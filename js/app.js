@@ -382,8 +382,7 @@ function viewSettings() {
 
     <section style="display:flex;flex-direction:column;gap:8px"><h2 class="sect">${esc(t('workoutSec'))}</h2>
       <div class="group">
-        <div style="padding:12px 14px;display:flex;flex-direction:column;gap:10px"><div><b style="font-weight:600">${esc(t('entryDefault'))}</b><div class="note" style="padding:0;font-size:12.5px">${esc(t('entrySub'))}</div></div>
-          ${seg('entry', s.entry, [{ v: 'groups', html: esc(t('entryGroups')) }, { v: 'muscles', html: esc(t('entryMuscles')) }], 'c2 inset')}</div>
+        <div class="srow" style="min-height:64px"><span class="tmain"><b>${esc(t('entryDefault'))}</b><span>${esc(t('entrySub'))}</span></span><button class="switch" role="switch" aria-checked="${s.entry === 'muscles'}" aria-label="${esc(t('entryDefault'))}" data-act="entry" data-v="${s.entry === 'muscles' ? 'groups' : 'muscles'}"><i></i></button></div>
         <button class="srow" data-act="tracked"><span class="tmain"><b>${esc(t('tracked'))}</b><span>${esc(t('trackedSub'))}</span></span><span class="note" style="padding:0">${nTracked} / ${ALL_MUSCLES.length}</span>${I.chev}</button>
       </div></section>
 
@@ -491,7 +490,7 @@ function workoutHTML() {
     <div class="scroll"><div class="olist">
       <div class="when"><label>${I.cal}<span class="sr">${esc(t('when'))}</span><input type="datetime-local" id="dt" value="${esc(draft.datetime)}"></label></div>
       <div class="selbody"><div data-bodyact="toggle">${bodyPair(fill, p, { interactive: true, label: t(byGroup ? 'counterNoneG' : 'counterNone') })}</div>
-        ${seg('tapmode', state.settings.entry, [{ v: 'groups', html: esc(t('tapGroups')) }, { v: 'muscles', html: esc(t('tapMuscles')) }], 'c2 tapmode')}
+        <button class="detailtgl" role="switch" aria-checked="${!byGroup}" data-act="tapmode" data-v="${byGroup ? 'muscles' : 'groups'}"><span>${esc(t('tapDetail'))}</span><span class="switch" aria-hidden="true" aria-checked="${!byGroup}"><i></i></span></button>
         <div class="count">${count}</div></div>
       <div class="chips" role="group">${chips}</div>
       <div class="glist">${groupsHtml}</div>
