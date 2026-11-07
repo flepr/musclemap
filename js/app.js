@@ -408,7 +408,7 @@ function viewSettings() {
         <a class="srow" href="privacy.html" style="text-decoration:none;color:inherit"><span class="tmain"><b>${esc(t('privacy'))}</b><span>${esc(t('privacySub'))}</span></span>${I.chev}</a>
         <div class="srow" style="min-height:48px;justify-content:space-between"><span class="note" style="padding:0">${esc(t('version'))}</span><span class="note" style="padding:0">${VERSION}</span></div>
       </div>
-      <p class="note credit">${esc(t('creditBy'))} <b>Fabien Lepère</b> · <a href="https://www.instagram.com/flepr/" target="_blank" rel="noopener">@flepr</a><br>${esc(t('creditClaude'))}</p></section>
+      <p class="note credit">${esc(t('creditBy'))} <b>Fabien Lepère</b> (<a href="https://www.instagram.com/flepr/" target="_blank" rel="noopener">@flepr</a>) ${esc(t('creditClaude'))}</p></section>
   </div>`;
 }
 
