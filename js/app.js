@@ -8,7 +8,7 @@ import { initSync, syncNow, login, logout, reconnect, connected, available, last
 import { backupCard, startBackupReminders, backupSeen } from './backup.js';
 import { isStandalone, guideHTML, installCard, startReminders, stopReminders, markSeen, promptInstall, onInstallChange, appUrl, tx, inAppBrowser, hostApp, intentUrl, isAndroid } from './install.js';
 
-const VERSION = '2.11';
+const VERSION = '2.12';
 const $ = s => document.querySelector(s);
 const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const cap = s => s ? s.charAt(0).toLocaleUpperCase(locale()) + s.slice(1) : s;
@@ -407,7 +407,8 @@ function viewSettings() {
         <button class="srow" data-act="article" data-a="all"><span class="tmain"><b>${esc(t('method'))}</b><span>${esc(t('methodSub'))}</span></span>${I.chev}</button>
         <a class="srow" href="privacy.html" style="text-decoration:none;color:inherit"><span class="tmain"><b>${esc(t('privacy'))}</b><span>${esc(t('privacySub'))}</span></span>${I.chev}</a>
         <div class="srow" style="min-height:48px;justify-content:space-between"><span class="note" style="padding:0">${esc(t('version'))}</span><span class="note" style="padding:0">${VERSION}</span></div>
-      </div></section>
+      </div>
+      <p class="note credit">${esc(t('creditBy'))} <b>Fabien Lepère</b> · <a href="https://www.instagram.com/flepr/" target="_blank" rel="noopener">@flepr</a><br>${esc(t('creditClaude'))}</p></section>
   </div>`;
 }
 
