@@ -6,7 +6,7 @@
    - L'adresse envoyée est toujours « / » : les paramètres de connexion (?code=…, #access_token=…) ne partent jamais.
    - Désactivable dans Réglages › À propos (choix gardé sur l'appareil). */
 
-const WEBSITE_ID = '';                         // ID du site dans Umami Cloud (vide = statistiques coupées)
+const WEBSITE_ID = '5927f278-4201-4080-ac46-bd9ccbcdb150';                         // ID du site dans Umami Cloud (vide = statistiques coupées)
 const SCRIPT = 'https://cloud.umami.is/script.js';
 const PROD_HOST = 'flepr.github.io';           // pas de statistiques pendant les tests en local
 const KEY = 'musclemap.stats.v1';              // { off, device, day, week }
