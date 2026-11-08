@@ -10,7 +10,7 @@ const TOMB_TTL = 90 * 24 * 3.6e6;          // traces de suppression oubliées ap
 export const DEFAULT_SETTINGS = {
   lang: 'auto', theme: 'auto',
   recSmall: DEFAULTS.recSmall, recBig: DEFAULTS.recBig, targetDays: DEFAULTS.targetDays,
-  entry: 'groups', excluded: [], onboarded: false, updatedAt: 0,
+  entry: 'groups', excluded: [], onboarded: false, stats: true, updatedAt: 0,
 };
 
 export const state = {
@@ -49,6 +49,7 @@ function cleanSettings(x) {
   if (['groups', 'muscles'].includes(x.entry)) s.entry = x.entry;
   if (Array.isArray(x.excluded)) s.excluded = x.excluded.filter(m => typeof m === 'string');
   s.onboarded = !!x.onboarded;
+  s.stats = x.stats !== false;
   s.updatedAt = +x.updatedAt || 0;
   return s;
 }

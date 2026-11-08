@@ -6,10 +6,10 @@ import { allStates, targets, priority, nextTarget, isTracked, trackedMuscles, se
 import { bodyPair, groupFigure, PALETTES, heatColor } from './body.js';
 import { initSync, syncNow, login, logout, reconnect, connected, available, lastStatus, provider, providers, lastProvider, isLocal, useLocal } from './sync.js';
 import { backupCard, startBackupReminders, backupSeen } from './backup.js';
-import { trackOpen, trackSession, trackEvent, statsConfigured, statsOn, setStats } from './stats.js';
+import { trackOpen, trackSession, trackEvent, statsConfigured, statsOn, setStats, migrateStatsChoice } from './stats.js';
 import { isStandalone, guideHTML, installCard, startReminders, stopReminders, markSeen, promptInstall, onInstallChange, appUrl, tx, inAppBrowser, hostApp, intentUrl, isAndroid } from './install.js';
 
-const VERSION = '2.13';
+const VERSION = '2.13.1';
 const $ = s => document.querySelector(s);
 const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const cap = s => s ? s.charAt(0).toLocaleUpperCase(locale()) + s.slice(1) : s;
@@ -617,10 +617,11 @@ function unlock() {
   render();
   countOpen();
 }
-/* statistiques anonymes : une ouverture par chargement de la page */
-let opened = false;
+/* statistiques anonymes : une ouverture par chargement de la page, comptée après la première synchro
+   (pour respecter un « Statistiques anonymes » coupé sur un autre appareil du même compte) */
+let opened = false, started = false;
 function countOpen() {
-  if (opened) return;
+  if (opened || !started || !ui.unlocked) return;
   opened = true;
   trackOpen({ connexion: connected() ? provider().id : isLocal() ? 'sans-compte' : 'aucune', installee: isStandalone() ? 'oui' : 'non', langue: lang() });
 }
@@ -780,6 +781,7 @@ function maybeOnboard() {
 /* le navigateur propose l'installation en un geste (Android, Chrome/Edge sur ordinateur) : on affiche le bouton */
 onInstallChange(() => { if (ui.overlay === 'install' || (ui.overlay === 'onb' && ui.onbStep === 4)) renderOverlay(); if (ui.unlocked) render(); });
 load();
+migrateStatsChoice();
 setLang(state.settings.lang);
 applyTheme();
 initSync({
@@ -790,7 +792,7 @@ initSync({
   data: () => { setLang(state.settings.lang); applyTheme(); if (ui.unlocked) { render(); if (ui.overlay && ui.overlay !== 'workout') renderOverlay(); } },
 }).then(ok => {
   if (ok) { if (!ui.unlocked) unlock(); if (isLocal()) startBackupReminders(); maybeOnboard(); }
-});
+}).finally(() => { started = true; countOpen(); });
 
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   navigator.serviceWorker.register('sw.js').catch(() => {});

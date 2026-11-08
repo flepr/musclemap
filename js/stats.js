@@ -4,24 +4,31 @@
    - Les « actifs du jour / de la semaine » sont comptés avec un simple repère gardé sur l'appareil
      (« déjà compté aujourd'hui ? ») : rien ne permet de relier deux visites entre elles côté Umami.
    - L'adresse envoyée est toujours « / » : les paramètres de connexion (?code=…, #access_token=…) ne partent jamais.
-   - Désactivable dans Réglages › À propos (choix gardé sur l'appareil). */
+   - Désactivable dans Réglages › À propos. Le choix fait partie des réglages synchronisés :
+     coupé une fois, il l'est sur tous les appareils connectés au même compte. */
+import { state, updateSettings } from './store.js';
 
 const WEBSITE_ID = '5927f278-4201-4080-ac46-bd9ccbcdb150';                         // ID du site dans Umami Cloud (vide = statistiques coupées)
 const SCRIPT = 'https://cloud.umami.is/script.js';
 const PROD_HOST = 'flepr.github.io';           // pas de statistiques pendant les tests en local
-const KEY = 'musclemap.stats.v1';              // { off, device, day, week }
+const KEY = 'musclemap.stats.v1';              // repères de l'appareil : { device, day, week }
 
 const read = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } };
 const write = o => { try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) {} };
 
 export const statsConfigured = () => !!WEBSITE_ID;
 export const statsAvailable = () => !!WEBSITE_ID && location.hostname === PROD_HOST;
-export const statsOn = () => !read().off;
+export const statsOn = () => state.settings.stats !== false;
 export function setStats(on) {
-  const s = read();
-  if (on) delete s.off; else s.off = true;
-  write(s);
+  updateSettings({ stats: !!on });
   if (on) boot();
+}
+/* v2.13 : le choix était gardé sur l'appareil ({ off: true }) ; il passe dans les réglages du compte */
+export function migrateStatsChoice() {
+  const s = read();
+  if (!s.off) return;
+  delete s.off; write(s);
+  if (statsOn()) updateSettings({ stats: false });
 }
 
 /* ---------- chargement du script et file d'attente ---------- */
