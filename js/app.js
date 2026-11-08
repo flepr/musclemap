@@ -6,9 +6,10 @@ import { allStates, targets, priority, nextTarget, isTracked, trackedMuscles, se
 import { bodyPair, groupFigure, PALETTES, heatColor } from './body.js';
 import { initSync, syncNow, login, logout, reconnect, connected, available, lastStatus, provider, providers, lastProvider, isLocal, useLocal } from './sync.js';
 import { backupCard, startBackupReminders, backupSeen } from './backup.js';
+import { trackOpen, trackSession, trackEvent, statsConfigured, statsOn, setStats } from './stats.js';
 import { isStandalone, guideHTML, installCard, startReminders, stopReminders, markSeen, promptInstall, onInstallChange, appUrl, tx, inAppBrowser, hostApp, intentUrl, isAndroid } from './install.js';
 
-const VERSION = '2.12';
+const VERSION = '2.13';
 const $ = s => document.querySelector(s);
 const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const cap = s => s ? s.charAt(0).toLocaleUpperCase(locale()) + s.slice(1) : s;
@@ -406,6 +407,7 @@ function viewSettings() {
       <div class="group">
         <button class="srow" data-act="article" data-a="all"><span class="tmain"><b>${esc(t('method'))}</b><span>${esc(t('methodSub'))}</span></span>${I.chev}</button>
         <a class="srow" href="privacy.html" style="text-decoration:none;color:inherit"><span class="tmain"><b>${esc(t('privacy'))}</b><span>${esc(t('privacySub'))}</span></span>${I.chev}</a>
+        ${statsConfigured() ? `<div class="srow" style="min-height:64px"><span class="tmain"><b>${esc(t('statsRow'))}</b><span>${esc(t('statsSub'))}</span></span><button class="switch" role="switch" aria-checked="${statsOn()}" aria-label="${esc(t('statsRow'))}" data-act="stats"><i></i></button></div>` : ''}
         <div class="srow" style="min-height:48px;justify-content:space-between"><span class="note" style="padding:0">${esc(t('version'))}</span><span class="note" style="padding:0">${VERSION}</span></div>
       </div>
       <p class="note credit">${esc(t('creditBy'))} <b>Fabien Lepère</b> (<a href="https://www.instagram.com/flepr/" target="_blank" rel="noopener">@flepr</a>) ${esc(t('creditClaude'))}</p></section>
@@ -613,6 +615,14 @@ function unlock() {
   ui.unlocked = true;
   $('#gate').hidden = true; $('#app').hidden = false;
   render();
+  countOpen();
+}
+/* statistiques anonymes : une ouverture par chargement de la page */
+let opened = false;
+function countOpen() {
+  if (opened) return;
+  opened = true;
+  trackOpen({ connexion: connected() ? provider().id : isLocal() ? 'sans-compte' : 'aucune', installee: isStandalone() ? 'oui' : 'non', langue: lang() });
 }
 
 /* ---------- toast ---------- */
@@ -689,6 +699,7 @@ document.addEventListener('click', e => {
     case 'lang': updateSettings({ lang: d.v }); setLang(d.v); render(); break;
     case 'theme': updateSettings({ theme: d.v }); applyTheme(); render(); break;
     case 'entry': updateSettings({ entry: d.v }); render(); break;
+    case 'stats': setStats(!statsOn()); render(); break;
     case 'step': { const k = d.k, dir = +d.d; if (!canStep(k, dir)) break; const v = state.settings[k] + dir * LIMITS[k][2]; const patch = { [k]: v };
       if (k !== 'targetDays') { const need = Math.floor(Math.max(v, k === 'recSmall' ? state.settings.recBig : state.settings.recSmall) / 24) + 1; if (state.settings.targetDays < need) patch.targetDays = need; }
       updateSettings(patch); render(); break; }
@@ -701,7 +712,7 @@ document.addEventListener('click', e => {
     case 'onbnext': { ui.onbStep = (ui.onbStep || 1) + 1; renderOverlay(); const sc = $('#overlay .scroll'); if (sc) sc.scrollTop = 0; break; }
     case 'onbinst': stopReminders(); // puis comme « onbdone »
     // falls through
-    case 'onbdone': startReminders(); updateSettings({ onboarded: true }); ui.onbStep = 1; ui.instTab = null; closeOverlay(); break;
+    case 'onbdone': trackEvent('onboarding-termine'); startReminders(); updateSettings({ onboarded: true }); ui.onbStep = 1; ui.instTab = null; closeOverlay(); break;
     /* installation sur l'écran d'accueil */
     case 'insttab': ui.instTab = d.v; renderOverlay(); break;
     case 'instopen': if (d.from === 'card') { markSeen(); cardHandled(); } ui.instTab = null; ui.overlay = 'install'; document.body.classList.add('locked'); renderOverlay(); render(); break;
@@ -723,6 +734,7 @@ document.addEventListener('click', e => {
       if (!draft.sel.size) { toast(t('pickOne')); break; }
       const dt = v ? new Date(v) : new Date();
       const keepUnknown = draft.original ? draft.original.muscles.filter(m => !MUSCLES[m]) : [];
+      if (!draft.id) trackSession(state.settings.entry === 'muscles' ? 'muscles' : 'groupes');
       upsertSession({ id: draft.id || uid(), datetime: (isNaN(dt) ? new Date() : dt).toISOString(), muscles: [...draft.sel, ...keepUnknown] });
       closeOverlay(); toast(t('saved')); break;
     }
