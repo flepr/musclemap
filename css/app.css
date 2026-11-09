@@ -128,6 +128,13 @@ input, select { font: inherit; color: var(--ink); }
 .overlay { position: fixed; inset: 0; z-index: 50; background: var(--bg); display: flex; flex-direction: column; }
 .overlay .scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
 .ohdr { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; padding: calc(10px + env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 0 max(10px, env(safe-area-inset-left)); max-width: 580px; margin: 0 auto; width: 100%; }
+.ohdr.onbh { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+.lsw { justify-self: start; display: inline-grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 3px; margin-left: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+:root[data-theme="light"] .lsw { background: var(--seg-track); border-color: transparent; }
+.lsw button { min-width: 34px; height: 30px; padding: 0 6px; border-radius: 8px; font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 14px; letter-spacing: .08em; color: var(--muted); position: relative; }
+.lsw button::after { content: ""; position: absolute; inset: -7px -2px; } /* zone tactile ≥ 44 px */
+.lsw button[aria-checked="true"] { background: var(--seg); color: var(--ink); box-shadow: var(--shadow); }
+:root[data-theme="light"] .lsw button[aria-checked="true"] { box-shadow: 0 1px 3px rgba(23,25,28,.12); }
 .ohdr h1 { margin: 0; text-align: center; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 22px; letter-spacing: .1em; text-transform: uppercase; }
 .when { display: flex; justify-content: center; margin-top: 4px; }
 .when label { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 6px 0 14px; border-radius: 19px; background: var(--surface); border: 1px solid var(--line); color: var(--ink-2); font-size: 14px; font-weight: 500; }
@@ -321,6 +328,8 @@ details.why .txt b { color: var(--ink); }
 #gate .inarrow { position: fixed; top: calc(6px + env(safe-area-inset-top)); right: 14px; color: var(--amber); animation: inpoke 1.4s ease-in-out infinite; }
 @keyframes inpoke { 50% { transform: translate(4px, -4px); } }
 @media (prefers-reduced-motion: reduce) { #gate .inarrow { animation: none; } }
+#gate .gfoot { display: flex; align-items: center; justify-content: center; gap: 18px; }
+#gate .gfoot .lsw { margin: 0; }
 #gate .gpriv { color: var(--muted); font-size: 14px; text-decoration: underline; text-underline-offset: 3px; }
 
 /* --- toast --- */

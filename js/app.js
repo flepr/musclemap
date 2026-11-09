@@ -9,7 +9,7 @@ import { backupCard, startBackupReminders, backupSeen } from './backup.js';
 import { trackOpen, trackSession, trackEvent, statsConfigured, statsOn, setStats, migrateStatsChoice } from './stats.js';
 import { isStandalone, guideHTML, installCard, startReminders, stopReminders, markSeen, promptInstall, onInstallChange, appUrl, tx, inAppBrowser, hostApp, intentUrl, isAndroid } from './install.js';
 
-const VERSION = '2.13.1';
+const VERSION = '2.13.2';
 const $ = s => document.querySelector(s);
 const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const cap = s => s ? s.charAt(0).toLocaleUpperCase(locale()) + s.slice(1) : s;
@@ -516,9 +516,20 @@ function trackedHTML() {
   return `<div class="ohdr"><button class="iconbtn" data-act="closeov" aria-label="${esc(t('back'))}">${I.back}</button><h1>${esc(t('trackedTitle'))}</h1><span></span></div>
     <div class="scroll"><div class="olist" style="padding:8px 16px 30px"><p class="note" style="font-size:14px">${esc(t('trackedIntro'))}</p>${trackList()}</div></div>`;
 }
+/* petit sélecteur FR / EN (parcours d'accueil) : fixe la langue comme dans Réglages (réglage synchronisé) */
+function langPill(act = 'onblang') {
+  const cur = lang();
+  return `<div class="lsw" role="radiogroup" aria-label="${esc(t('language'))}">${[['fr', 'Français'], ['en', 'English']].map(([v, n]) => `<button role="radio" aria-checked="${v === cur}" aria-label="${n}" lang="${v}" data-act="${act}" data-v="${v}">${v.toUpperCase()}</button>`).join('')}</div>`;
+}
+/* Langue choisie sur l'écran de connexion : gardée en attente sur l'appareil, puis enregistrée dans les réglages
+   seulement après la première synchro (sinon des réglages par défaut, plus récents, écraseraient ceux du compte). */
+const PENDING_LANG = 'musclemap.lang.pending';
+function pendingLang() { try { const v = localStorage.getItem(PENDING_LANG); return v === 'fr' || v === 'en' ? v : null; } catch (e) { return null; } }
+function setPendingLang(v) { try { if (v) localStorage.setItem(PENDING_LANG, v); else localStorage.removeItem(PENDING_LANG); } catch (e) {} }
+function applyPendingLang() { const v = pendingLang(); if (!v) return; setPendingLang(null); if (state.settings.lang !== v) updateSettings({ lang: v }); }
 function onbHTML() {
   const step = ui.onbStep || 1, p = pal(), total = ui.onbTotal || 3;
-  const head = `<div class="ohdr"><span></span><h1>MUSCLE<span style="color:var(--accent)">MAP</span></h1>${step < 3 ? `<button class="iconbtn" style="width:auto;padding:0 6px;font-size:14px;font-weight:600;color:var(--muted)" data-act="onbdone">${esc(t('skip'))}</button>` : '<span></span>'}</div>`;
+  const head = `<div class="ohdr onbh">${langPill()}<h1>MUSCLE<span style="color:var(--accent)">MAP</span></h1>${step < 3 ? `<button class="iconbtn" style="width:auto;padding:0 6px;font-size:14px;font-weight:600;color:var(--muted);justify-self:end" data-act="onbdone">${esc(t('skip'))}</button>` : '<span></span>'}</div>`;
   const num = n => `<div class="step">${esc(t('step', { n, t: total }))}</div>`;
   let body;
   if (step === 1) {
@@ -575,7 +586,7 @@ function reminderCard() {
 
 /* ---------- connexion ---------- */
 function showGate(reason, step) {
-  ui.unlocked = false;
+  ui.unlocked = false; ui.gate = { reason, step };
   $('#app').hidden = true; closeSheet(); ui.overlay = null; renderOverlay();
   const p = pal();
   const msg = { expired: t('gateExpired'), failed: t('gateFailed'), loggedOut: t('gateLoggedOut'), scope: t('gateScope'), cancelled: t('gateCancelled') }[reason] || '';
@@ -594,16 +605,16 @@ function showGate(reason, step) {
       ${and ? `<a class="btn" href="${esc(intentUrl())}">${esc(t('inappOpenAnd'))}</a><p class="gor">${esc(t('inappOr'))}</p>` : ''}
       <ol class="isteps"><li>${t('inappStep1', { d: and ? kebab : dots })}</li><li>${esc(t(and ? 'inappStep2And' : 'inappStep2'))}</li></ol></div>
       <div class="ssos"><button class="btn sso" data-act="instcopy">${esc(t('instCopy'))}</button></div>
-      <button class="glocal" data-act="inappskip">${esc(t('inappStay'))}</button>`
+      <button class="glocal" data-act="inappskip">${esc(t('inappStay'))}</button><div class="gfoot">${langPill('gatelang')}</div>`
     : step === 'local'
     // « Utiliser sans compte » : avertissement avant d'entrer
     ? `${head}<div class="gwarn"><h2>${esc(t('localTitle'))}</h2><p>${esc(t('localText'))}</p>
         ${isStandalone() ? '' : `<p class="gtip">${esc(t('localInstall'))}</p>`}</div>
-        <div class="ssos"><button class="btn" data-act="localgo">${esc(t('localGo'))}</button><button class="btn sso" data-act="localback">${esc(t('back'))}</button></div>`
+        <div class="ssos"><button class="btn" data-act="localgo">${esc(t('localGo'))}</button><button class="btn sso" data-act="localback">${esc(t('back'))}</button></div><div class="gfoot">${langPill('gatelang')}</div>`
     : `${head}<div class="gbody">${bodyPair(m => ({ pec_haut: 1, pec_mil: 1, dorsal: 2, gastro: 2 }[m] === 1 ? heatColor(p, .7) : { dorsal: 1, gastro: 1 }[m] ? p.target : p.steel), p, { label: 'MuscleMap' })}</div>
     <p>${esc(t(list.length > 1 ? 'gateText2' : 'gateText'))}</p><div class="ssos">${btns}</div>
     <button class="glocal" data-act="localask">${esc(t('localLink'))}</button>
-    <p class="err" role="alert">${esc(msg)}</p><a class="gpriv" href="privacy.html">${esc(t('privacy'))}</a>`;
+    <p class="err" role="alert">${esc(msg)}</p><div class="gfoot">${langPill('gatelang')}<a class="gpriv" href="privacy.html">${esc(t('privacy'))}</a></div>`;
   g.hidden = false;
 }
 /* Navigateur intégré (Instagram…) : l'écran « Ouvre MuscleMap dans Safari » passe avant tout, même si
@@ -613,6 +624,7 @@ function inappSkipped() { try { return ui.inappSkip || sessionStorage.getItem('m
 function unlock() {
   if (inAppBrowser() && !inappSkipped()) { pendingUnlock = true; showGate('', 'inapp'); return; }
   ui.unlocked = true;
+  if (isLocal()) applyPendingLang();
   $('#gate').hidden = true; $('#app').hidden = false;
   render();
   countOpen();
@@ -710,6 +722,10 @@ document.addEventListener('click', e => {
     case 'closeov': closeOverlay(); break;
     case 'track': toggleTrack([d.m], el.getAttribute('aria-checked') !== 'true'); if (ui.overlay) renderOverlay(); if (ui.sheet) renderSheet(); render(); break;
     case 'trackg': toggleTrack(GROUPS[d.g].muscles, el.getAttribute('aria-checked') !== 'true'); renderOverlay(); render(); break;
+    case 'gatelang': if (d.v === lang()) break; setPendingLang(d.v); setLang(d.v); showGate(ui.gate ? ui.gate.reason : '', ui.gate ? ui.gate.step : undefined); break;
+    case 'onblang': { if (d.v === lang()) break; const sc = $('#overlay .scroll'), y = sc ? sc.scrollTop : 0;
+      updateSettings({ lang: d.v }); setLang(d.v); renderOverlay(); if (ui.unlocked) render();
+      const sc2 = $('#overlay .scroll'); if (sc2) sc2.scrollTop = y; break; }
     case 'onbnext': { ui.onbStep = (ui.onbStep || 1) + 1; renderOverlay(); const sc = $('#overlay .scroll'); if (sc) sc.scrollTop = 0; break; }
     case 'onbinst': stopReminders(); // puis comme « onbdone »
     // falls through
@@ -782,14 +798,14 @@ function maybeOnboard() {
 onInstallChange(() => { if (ui.overlay === 'install' || (ui.overlay === 'onb' && ui.onbStep === 4)) renderOverlay(); if (ui.unlocked) render(); });
 load();
 migrateStatsChoice();
-setLang(state.settings.lang);
+setLang(pendingLang() || state.settings.lang);
 applyTheme();
 initSync({
   gate: reason => showGate(reason),
   unlock: () => unlock(),
   status: () => updateSyncUI(),
   idle: () => !ui.overlay && !ui.sheet,
-  data: () => { setLang(state.settings.lang); applyTheme(); if (ui.unlocked) { render(); if (ui.overlay && ui.overlay !== 'workout') renderOverlay(); } },
+  data: () => { applyPendingLang(); setLang(state.settings.lang); applyTheme(); if (ui.unlocked) { render(); if (ui.overlay && ui.overlay !== 'workout') renderOverlay(); } },
 }).then(ok => {
   if (ok) { if (!ui.unlocked) unlock(); if (isLocal()) startBackupReminders(); maybeOnboard(); }
 }).finally(() => { started = true; countOpen(); });

@@ -103,7 +103,7 @@ export const MUSCLES = {
     en: { name: 'Forearm extensors', sci: 'Wrist and finger extensors', role: 'Lifts the wrist, opens the hand', ex: 'Reverse wrist curls, reverse curls' } },
 
   abdos: {
-    fr: { name: 'Grand droit', sci: 'Grand droit de l’abdomen (« la tablette »)', role: 'Enroule le buste', ex: 'Crunch (accent haut), relevé de bassin (accent bas), roue abdominale' },
+    fr: { name: 'Grand droit', sci: 'Grand droit de l’abdomen (« la tablette »)', role: 'Enroule le buste', ex: 'Crunch (accent haut), relevé de bassin (accent bas), roue abdominale' },
     en: { name: 'Six-pack', sci: 'Rectus abdominis', role: 'Curls the trunk', ex: 'Crunches (upper emphasis), reverse crunches (lower emphasis), ab wheel' } },
   obliques: {
     fr: { name: 'Obliques', sci: 'Obliques externe et interne', role: 'Tourne et incline le buste', ex: 'Russian twist, crunch oblique, woodchopper' },
@@ -123,7 +123,7 @@ export const MUSCLES = {
     fr: { name: 'Vaste externe', sci: 'Vaste latéral', role: 'Tend le genou', ex: 'Squat, presse à cuisses, fentes' },
     en: { name: 'Outer quad', sci: 'Vastus lateralis', role: 'Straightens the knee', ex: 'Squat, leg press, lunges' } },
   quad_int: {
-    fr: { name: 'Vaste interne', sci: 'Vaste médial (« la goutte »)', role: 'Tend le genou, stabilise la rotule', ex: 'Squat complet, leg extension, fentes' },
+    fr: { name: 'Vaste interne', sci: 'Vaste médial (« la goutte »)', role: 'Tend le genou, stabilise la rotule', ex: 'Squat complet, leg extension, fentes' },
     en: { name: 'Teardrop', sci: 'Vastus medialis', role: 'Straightens the knee, stabilises the kneecap', ex: 'Deep squat, leg extension, lunges' } },
 
   ischio_bf: {
@@ -138,14 +138,14 @@ export const MUSCLES = {
     en: { name: 'Adductors', sci: 'Adductor longus, brevis & magnus, pectineus, gracilis', role: 'Pulls the leg inward', ex: 'Adductor machine, sumo squat, Copenhagen plank' } },
 
   gastro: {
-    fr: { name: 'Gastrocnémiens', sci: 'Gastrocnémiens (« les jumeaux »)', role: 'Pointe le pied, jambe tendue', ex: 'Mollets debout, mollets à la presse' },
+    fr: { name: 'Gastrocnémiens', sci: 'Gastrocnémiens (« les jumeaux »)', role: 'Pointe le pied, jambe tendue', ex: 'Mollets debout, mollets à la presse' },
     en: { name: 'Gastrocs', sci: 'Gastrocnemius', role: 'Points the foot with a straight knee', ex: 'Standing calf raises, leg-press calf raises' } },
   soleaire: {
     fr: { name: 'Soléaire', sci: 'Soléaire (sous les jumeaux)', role: 'Pointe le pied, genou plié', ex: 'Mollets assis' },
     en: { name: 'Soleus', sci: 'Soleus', role: 'Points the foot with a bent knee', ex: 'Seated calf raises' } },
 };
 
-/* Noms courts, pour les étiquettes de l'historique (« Pectoraux · haut, milieu ») */
+/* Noms courts, pour les étiquettes de l'historique (« Pectoraux · haut, milieu ») */
 export const SHORT = {
   fr: { pec_haut: 'haut', pec_mil: 'milieu', pec_bas: 'bas', delt_ant: 'avant', delt_lat: 'latéral', delt_post: 'arrière', coiffe: 'coiffe',
     trap_haut: 'haut', trap_mil: 'milieu', trap_bas: 'bas', dorsal: 'grand dorsal', grand_rond: 'grand rond', lombaires: 'lombaires',
