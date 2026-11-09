@@ -303,10 +303,13 @@ details.why .txt b { color: var(--ink); }
 .how div { display: flex; gap: 12px; align-items: flex-start; font-size: 15px; color: var(--ink-2); }
 .how .sw { width: 16px; height: 16px; border-radius: 4px; margin-top: 3px; }
 .how b { color: var(--ink); }
-#gate { position: fixed; inset: 0; z-index: 100; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom)); text-align: center; }
+#gate { position: fixed; inset: 0; z-index: 100; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; gap: 16px; padding: calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom)); text-align: center; }
+/* centré quand tout tient, sinon défilement depuis le haut (un centrage simple coupait le haut et le bas, inaccessibles) */
+#gate::before, #gate::after { content: ""; flex: 1 0 0px; }
+#gate::before { margin-bottom: -16px; } #gate::after { margin-top: -16px; }
 #gate .wordmark { font-size: 46px; }
 #gate .tag { font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 20px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
-#gate .gbody svg { width: min(64vw, 240px); height: auto; }
+#gate .gbody svg { width: min(64vw, 240px); width: clamp(130px, calc((100dvh - 510px) * .9), min(64vw, 240px)); height: auto; }
 #gate p { margin: 0; max-width: 340px; color: var(--muted); font-size: 15px; line-height: 1.45; }
 #gate .btn { max-width: 340px; font-size: 18px; }
 #gate .ssos { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 340px; }
@@ -315,6 +318,8 @@ details.why .txt b { color: var(--ink); }
 .plogo { display: flex; width: 24px; justify-content: center; flex: none; }
 .tmain span.acct { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #gate .err { color: var(--red-ink); min-height: 20px; font-weight: 500; }
+#gate .err:empty { display: none; }
+@media (max-height: 760px) { #gate { gap: 12px; } #gate::before { margin-bottom: -12px; } #gate::after { margin-top: -12px; } }
 #gate .glocal { background: none; border: 0; color: var(--ink-2); font: 600 15px Barlow, sans-serif; text-decoration: underline; text-underline-offset: 4px; padding: 6px 12px; cursor: pointer; }
 #gate .gwarn { max-width: 340px; display: flex; flex-direction: column; gap: 12px; text-align: left; }
 #gate .gwarn h2 { margin: 8px 0 0; font: 700 26px/1.1 'Barlow Condensed', sans-serif; text-transform: uppercase; letter-spacing: .03em; color: var(--ink); }
