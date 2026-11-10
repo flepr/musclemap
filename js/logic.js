@@ -1,6 +1,6 @@
 /* MuscleMap — calcul des états (récup / prêt / à cibler) et des priorités. */
 import { GROUPS, FAMILIES, GROUP_OF, FAMILY_OF, ALL_MUSCLES, MUSCLES } from './data.js';
-import { state } from './store.js';
+import { state, upsertSession } from './store.js';
 
 const H = 3.6e6;
 
@@ -107,3 +107,24 @@ export function sessionGroups(muscles) {
 }
 export const knownMuscles = list => list.filter(m => MUSCLES[m]);
 export { FAMILY_OF, GROUP_OF };
+
+/* Séance en cours : enregistrée au fur et à mesure (« Valider »), elle reste ouverte (open: true,
+   lastAt = dernier ajout) jusqu'à « Terminer », ou se ferme toute seule 1 h après le dernier muscle
+   validé. La fermeture est vérifiée à l'ouverture de l'app (pas de minuterie en arrière-plan) : le
+   résultat est le même sur tous les appareils. */
+export const AUTO_CLOSE = 3.6e6;
+const lastAt = s => +s.lastAt || new Date(s.datetime).getTime();
+export const liveEnds = s => lastAt(s) + AUTO_CLOSE;
+export function openSession(now = Date.now()) {
+  let best = null;
+  for (const s of state.sessions) if (s.open && liveEnds(s) > now && (!best || lastAt(s) > lastAt(best))) best = s;
+  return best;
+}
+export function closedCopy(s) { const { open, lastAt: _, ...rest } = s; return rest; }
+/* Ferme les séances oubliées ; renvoie true si quelque chose a changé */
+export function closeStale(now = Date.now()) {
+  const keep = openSession(now);
+  const stale = state.sessions.filter(s => s.open && s !== keep);
+  stale.forEach(s => upsertSession(closedCopy(s)));
+  return stale.length > 0;
+}

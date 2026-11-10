@@ -2,14 +2,14 @@
 import { FAMILIES, GROUPS, MUSCLES, SHORT, GROUP_OF, ALL_MUSCLES, STUDIES, DEFAULTS } from './data.js';
 import { t, L, setLang, lang, locale } from './i18n.js';
 import { state, load, save, upsertSession, deleteSession, restoreSession, updateSettings, uid, parseData, mergeInto, serialize } from './store.js';
-import { allStates, targets, priority, nextTarget, isTracked, trackedMuscles, sessionGroups, knownMuscles } from './logic.js';
+import { allStates, targets, priority, nextTarget, isTracked, trackedMuscles, sessionGroups, knownMuscles, openSession, closeStale, closedCopy, liveEnds, AUTO_CLOSE } from './logic.js';
 import { bodyPair, groupFigure, PALETTES, heatColor } from './body.js';
 import { initSync, syncNow, login, logout, reconnect, connected, available, lastStatus, provider, providers, lastProvider, isLocal, useLocal } from './sync.js';
 import { backupCard, startBackupReminders, backupSeen } from './backup.js';
 import { trackOpen, trackSession, trackEvent, statsConfigured, statsOn, setStats, migrateStatsChoice } from './stats.js';
 import { isStandalone, guideHTML, installCard, startReminders, stopReminders, markSeen, promptInstall, onInstallChange, appUrl, tx, inAppBrowser, hostApp, intentUrl, isAndroid } from './install.js';
 
-const VERSION = '2.13.4';
+const VERSION = '2.14';
 const $ = s => document.querySelector(s);
 const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const cap = s => s ? s.charAt(0).toLocaleUpperCase(locale()) + s.slice(1) : s;
@@ -89,6 +89,9 @@ let draft = null;   // séance en cours de saisie
 /* ---------- rendu général ---------- */
 function render() {
   if (!ui.unlocked) return;
+  // séances oubliées fermées seulement après la première synchro : sinon une copie locale ancienne
+  // écraserait une séance continuée entre-temps sur un autre appareil
+  if (started) closeStale();
   renderTabs();
   const y = window.scrollY;
   const v = $('#view');
@@ -100,7 +103,7 @@ function renderTabs() {
   const tab = (id, icon, label) => `<button class="tab" data-act="tab" data-tab="${id}" ${ui.tab === id ? 'aria-current="page"' : ''}>${icon}${esc(label)}<span class="bar"></span></button>`;
   $('#tabs').setAttribute('aria-label', t('navMain'));
   $('#tabs').innerHTML = `<div class="in">${tab('map', I.map, t('tabMap'))}${tab('history', I.hist, t('tabHistory'))}`
-    + `<button class="tab fab" data-act="workout" aria-label="${esc(t('newWorkout'))}"><span class="plus">${I.plus}</span>${esc(t('tabWorkout'))}</button>`
+    + `<button class="tab fab" data-act="workout" aria-label="${esc(t(openSession() ? 'continueWorkout' : 'newWorkout'))}"><span class="plus">${I.plus}${openSession() ? '<i class="livedot"></i>' : ''}</span>${esc(t('tabWorkout'))}</button>`
     + `${tab('muscles', I.musc, t('tabMuscles'))}${tab('settings', I.set, t('tabSettings'))}</div>`;
 }
 
@@ -138,6 +141,21 @@ function syncLine() {
   if (s.state === 'error') return t('syncErrorLong', { p });
   if (s.state === 'reauth') return t('syncReauthLong', { a: provider().account });
   return t('syncing');
+}
+
+/* ---------- carte « Séance en cours » (onglet Carte) ---------- */
+function groupTags(muscles) {
+  return sessionGroups(knownMuscles(muscles)).map(x => x.whole ? `<span class="stag">${esc(gName(x.group))}</span>` : `<span class="stag part">${esc(gName(x.group))}<i> · ${esc(x.muscles.map(mShort).join(', '))}</i></span>`).join('');
+}
+function liveCard() {
+  const s = openSession();
+  if (!s) return '';
+  return `<section class="card livecard" aria-labelledby="live-h">
+    <div class="lhead"><span class="ldot" aria-hidden="true"></span><b id="live-h">${esc(t('liveTitle'))}</b><span class="note">${esc(t('liveCardSince', { t: fmtTime(s.datetime) }))}</span></div>
+    <div class="stags" style="margin-top:0">${groupTags(s.muscles)}</div>
+    <p class="note">${esc(t('liveAuto', { t: fmtTime(liveEnds(s)) }))}</p>
+    <div class="ibtns"><button class="btn small acc" data-act="workout">${esc(t('liveContinue'))}</button><button class="btn small" data-act="livefinish">${esc(t('liveFinish'))}</button></div>
+  </section>`;
 }
 
 /* ---------- carte ---------- */
@@ -196,7 +214,7 @@ function viewMap() {
       <h1 class="h1" style="margin-top:4px">${esc(title)}</h1>
       ${sub ? `<p class="note" style="padding:6px 0 0">${esc(sub)}</p>` : ''}
     </div>
-    ${reminderCard()}
+    ${openSession() ? liveCard() : reminderCard()}
     <section class="card mapcard" aria-label="${esc(t('mapLabel'))}">
       <div data-bodyact="sheet">${bodyPair(mapFill(states, pal()), pal(), { interactive: true, label: t('mapLabel') })}</div>
       <div class="views"><span>${esc(t('viewFront'))}</span><span>${esc(t('viewBack'))}</span></div>
@@ -237,8 +255,8 @@ function viewHistory() {
     }
     const ms = knownMuscles(s.muscles);
     const sg = sessionGroups(ms);
-    const tags = sg.map(x => x.whole ? `<span class="stag">${esc(gName(x.group))}</span>` : `<span class="stag part">${esc(gName(x.group))}<i> · ${esc(x.muscles.map(mShort).join(', '))}</i></span>`).join('');
-    html += `<button class="scard" data-act="edit" data-id="${esc(s.id)}" aria-label="${esc(t('options', { d: fmtLong(s.datetime) }))}"><h3>${esc(fmtLong(s.datetime))}</h3><div class="meta">${esc(t('sessionMeta', { t: fmtTime(s.datetime), m: ms.length, g: sg.length }))}</div><div class="stags">${tags}</div></button>`;
+    const tags = groupTags(s.muscles), live = s === openSession();
+    html += `<button class="scard" data-act="edit" data-id="${esc(s.id)}" aria-label="${esc(t(live ? 'continueWorkout' : 'options', { d: fmtLong(s.datetime) }))}"><h3>${esc(fmtLong(s.datetime))}${live ? `<span class="livetag"><i class="ldot"></i>${esc(t('liveTag'))}</span>` : ''}</h3><div class="meta">${esc(t('sessionMeta', { t: fmtTime(s.datetime), m: ms.length, g: sg.length }))}</div><div class="stags">${tags}</div></button>`;
   }
 
   return `<div class="screen">
@@ -428,10 +446,12 @@ function toggleGroup(g) {
   if (groupBox(g) === 'on') ms.forEach(m => draft.sel.delete(m)); else pool.forEach(m => draft.sel.add(m));
 }
 function openWorkout(session, preselect) {
-  const sel = new Set(session ? knownMuscles(session.muscles) : (preselect || []));
-  draft = { id: session ? session.id : null, original: session || null, datetime: toInput(session ? session.datetime : Date.now()), sel, expanded: expandedFor(sel), filter: 'all' };
+  const live = !!session && session === openSession();
+  const base = new Set(session ? knownMuscles(session.muscles) : []);
+  const sel = new Set([...base, ...(preselect || [])]);
+  draft = { id: session ? session.id : null, original: session || null, live, base, datetime: toInput(session ? session.datetime : Date.now()), sel, expanded: expandedFor(sel), filter: 'all' };
   ui.overlay = 'workout';
-  closeSheet();
+  closeSheet(); clearToast();
   document.body.classList.add('locked');
   renderOverlay();
 }
@@ -489,10 +509,21 @@ function workoutHTML() {
     if (!gs.length) continue;
     groupsHtml += `<div class="sect" style="padding:6px 4px 0">${esc(fName(f.id))}</div>` + gs.map(g => wGroup(g, states)).join('');
   }
-  const fill = m => draft.sel.has(m) ? p.sel : isTracked(m) ? p.dim : p.off;
-  return `<div class="ohdr"><button class="iconbtn" data-act="closeov" aria-label="${esc(t('close'))}">${I.x}</button><h1>${esc(draft.id ? t('editWorkout') : t('newWorkout'))}</h1><span></span></div>
+  // séance en cours : les muscles déjà validés sont en vert, ceux qui restent à valider en rouge
+  const fill = m => draft.sel.has(m) ? (draft.live && draft.base.has(m) ? heatColor(p, 1) : p.sel) : isTracked(m) ? p.dim : p.off;
+  const pending = draftPending();
+  const fresh = !draft.id || draft.live;
+  const check = I.check.replace('width="14" height="14"', 'width="20" height="20"');
+  const foot = !fresh
+    ? `<button class="btn" data-act="saveworkout">${check}${esc(t('saveEdit'))}</button>`
+    : draft.live && !pending
+      ? `<button class="btn" data-act="finishworkout">${check}${esc(t('finishWorkout'))}</button>`
+      : `<button class="btn" data-act="saveworkout">${check}${esc(t('validate'))}</button><button class="btn ghost slim" data-act="finishworkout">${esc(t('validateFinish'))}</button>`;
+  return `<div class="ohdr"><button class="iconbtn" data-act="closeov" aria-label="${esc(t('close'))}">${I.x}</button><h1>${esc(draft.live ? t('liveTitle') : draft.id ? t('editWorkout') : t('newWorkout'))}</h1><span></span></div>
     <div class="scroll"><div class="olist">
-      <div class="when"><label>${I.cal}<span class="sr">${esc(t('when'))}</span><input type="datetime-local" id="dt" value="${esc(draft.datetime)}"></label></div>
+      <div class="when">${draft.live
+        ? `<span class="since"><i class="ldot"></i>${esc(t('liveSince', { t: fmtTime(draft.original.datetime) }))}</span>`
+        : `<label>${I.cal}<span class="sr">${esc(t('when'))}</span><input type="datetime-local" id="dt" value="${esc(draft.datetime)}"></label>`}</div>
       <div class="selbody"><div data-bodyact="toggle">${bodyPair(fill, p, { interactive: true, label: t(byGroup ? 'counterNoneG' : 'counterNone') })}</div>
         <button class="detailtgl" role="switch" aria-checked="${!byGroup}" data-act="tapmode" data-v="${byGroup ? 'muscles' : 'groups'}"><span>${esc(t('tapDetail'))}</span><span class="switch" aria-hidden="true" aria-checked="${!byGroup}"><i></i></span></button>
         <div class="count">${count}</div></div>
@@ -500,7 +531,37 @@ function workoutHTML() {
       <div class="glist">${groupsHtml}</div>
       ${draft.id ? `<div style="padding:18px 16px 0"><button class="btn danger" data-act="delete">${esc(t('delete'))}</button></div>` : ''}
     </div></div>
-    <div class="ofoot"><div class="in"><button class="btn" data-act="saveworkout">${I.check.replace('width="14" height="14"', 'width="20" height="20"')}${esc(draft.id ? t('saveEdit') : t('save'))}</button></div></div>`;
+    <div class="ofoot"><div class="in">${foot}${!draft.id ? `<p class="note autonote">${esc(t('autoNote'))}</p>` : ''}</div></div>`;
+}
+/* muscles ajoutés ou retirés depuis le dernier « Valider » */
+function draftPending() {
+  return [...draft.sel].some(m => !draft.base.has(m)) || [...draft.base].some(m => !draft.sel.has(m));
+}
+/* Valider (la séance reste ouverte) ou Valider et terminer (finish) ; modification d'une séance passée */
+function commitWorkout(finish) {
+  if (!draft.sel.size) { toast(t('pickOne')); return; }
+  const now = Date.now();
+  let dt;
+  if (draft.live) dt = new Date(draft.original.datetime);
+  else { const v = $('#dt') ? $('#dt').value : draft.datetime; dt = v ? new Date(v) : new Date(); if (isNaN(dt)) dt = new Date(); }
+  const keepUnknown = draft.original ? draft.original.muscles.filter(m => !MUSCLES[m]) : [];
+  const added = [...draft.sel].filter(m => !draft.base.has(m));
+  const fresh = !draft.id || draft.live;
+  if (!draft.id) trackSession(state.settings.entry === 'muscles' ? 'muscles' : 'groupes');
+  const rec = { ...(draft.original || {}), id: draft.id || uid(), datetime: dt.toISOString(), muscles: [...draft.sel, ...keepUnknown] };
+  // une séance saisie après coup (plus d'1 h dans le passé) est enregistrée directement terminée
+  const late = !draft.id && now - dt.getTime() > AUTO_CLOSE;
+  const keepOpen = fresh && !finish && !late;
+  upsertSession(keepOpen ? { ...rec, open: true, lastAt: now } : closedCopy(rec));
+  closeOverlay();
+  if (!keepOpen) toast(t(fresh && !late ? 'liveDone' : 'saved'));
+  else toast(added.length ? t('liveSaved', { x: listText(sessionGroups(added).map(x => low(gName(x.group)))) }) : t('liveUpdated'));
+}
+function finishLive() {
+  const s = openSession(); if (!s) return;
+  upsertSession(closedCopy(s));
+  render();
+  toast(t('liveDone'), t('undo'), () => { const cur = state.sessions.find(x => x.id === s.id); if (cur) { upsertSession({ ...cur, open: true, lastAt: Date.now() }); render(); } });
 }
 
 /* ---------- plein écran : muscles suivis, accueil, article ---------- */
@@ -571,7 +632,7 @@ function renderOverlay() {
   o.innerHTML = `<div class="overlay" role="dialog" aria-modal="true">${html}</div>`;
   const nx = o.querySelector('.scroll'); if (nx) nx.scrollTop = y;
 }
-function closeOverlay() { ui.overlay = null; draft = null; renderOverlay(); render(); }
+function closeOverlay() { ui.overlay = null; draft = null; hideBubble(); renderOverlay(); render(); }
 
 /* ---------- cartes de rappel (installation, sauvegarde) : une seule à la fois, et au plus une par jour ---------- */
 const CARD_DAY = 'musclemap.cardday';
@@ -638,8 +699,26 @@ function countOpen() {
   trackOpen({ connexion: connected() ? provider().id : isLocal() ? 'sans-compte' : 'aucune', installee: isStandalone() ? 'oui' : 'non', langue: lang() });
 }
 
+/* ---------- bulle : nom du muscle (ou groupe musculaire) touché sur le corps, pendant la saisie ---------- */
+let bubbleTimer = null;
+function showBubble(x, y, title, sub, on) {
+  let el = $('#bubble');
+  if (!el) { el = document.createElement('div'); el.id = 'bubble'; el.setAttribute('aria-hidden', 'true'); document.body.appendChild(el); }
+  el.className = 'bubble' + (on ? ' on' : ' offb');
+  el.innerHTML = `<b>${on ? I.check : ''}${esc(title)}</b><span>${esc(sub)}</span>`;
+  const w = el.offsetWidth, h = el.offsetHeight, vw = document.documentElement.clientWidth;
+  const left = Math.max(8, Math.min(vw - w - 8, x - w / 2));
+  const top = y - h - 34 < 8 ? y + 30 : y - h - 34;          // au-dessus du doigt, sinon en dessous
+  el.style.left = left + 'px'; el.style.top = top + 'px';
+  el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+  clearTimeout(bubbleTimer);
+  bubbleTimer = setTimeout(() => el.classList.remove('show'), 1500);
+}
+function hideBubble() { clearTimeout(bubbleTimer); const el = $('#bubble'); if (el) el.classList.remove('show'); }
+
 /* ---------- toast ---------- */
 let toastTimer = null;
+function clearToast() { clearTimeout(toastTimer); $('#toast').innerHTML = ''; toast.fn = null; }
 function toast(msg, action, fn) {
   const el = $('#toast');
   el.innerHTML = `<div class="toast"><span>${esc(msg)}</span>${action ? `<button data-act="toastaction">${esc(action)}</button>` : ''}</div>`;
@@ -680,8 +759,15 @@ document.addEventListener('click', e => {
     if (mode === 'sheet') openSheet(GROUP_OF[m]);
     else if (mode === 'toggle' && draft) {
       const g = GROUP_OF[m];
-      if (state.settings.entry !== 'muscles' && g) toggleGroup(g);
-      else draft.sel.has(m) ? draft.sel.delete(m) : draft.sel.add(m);
+      if (state.settings.entry !== 'muscles' && g) {
+        toggleGroup(g);
+        const on = groupBox(g) !== '', n = GROUPS[g].muscles.length;
+        showBubble(e.clientX, e.clientY, gName(g), on ? (n === 1 ? t('counter1m') : t('counterM', { n })) : t('bubbleOff'), on);
+      } else {
+        draft.sel.has(m) ? draft.sel.delete(m) : draft.sel.add(m);
+        const on = draft.sel.has(m);
+        showBubble(e.clientX, e.clientY, mName(m), on ? (g ? gName(g) : '') : t('bubbleOff'), on);
+      }
       renderOverlay();
     }
     return;
@@ -691,8 +777,10 @@ document.addEventListener('click', e => {
   const a = el.dataset.act, d = el.dataset;
   switch (a) {
     case 'tab': ui.tab = d.tab; window.scrollTo(0, 0); render(); break;
-    case 'workout': openWorkout(null); break;
-    case 'workout-with': openWorkout(null, d.ms.split(',')); break;
+    case 'workout': openWorkout(openSession()); break;
+    case 'workout-with': openWorkout(openSession(), d.ms.split(',')); break;
+    case 'livefinish': finishLive(); break;
+    case 'finishworkout': commitWorkout(true); break;
     case 'edit': { const s = state.sessions.find(x => x.id === d.id); if (s) openWorkout(s); break; }
     case 'sheet': openSheet(d.g); break;
     case 'closesheet': closeSheet(); break;
@@ -746,15 +834,7 @@ document.addEventListener('click', e => {
     case 'tm': draft.sel.has(d.m) ? draft.sel.delete(d.m) : draft.sel.add(d.m); renderOverlay(); break;
     case 'tg': toggleGroup(d.g); renderOverlay(); break;
     case 'tapmode': if (state.settings.entry !== d.v) { updateSettings({ entry: d.v }); draft.expanded = expandedFor(draft.sel); renderOverlay(); render(); } break;
-    case 'saveworkout': {
-      const v = $('#dt') ? $('#dt').value : draft.datetime;
-      if (!draft.sel.size) { toast(t('pickOne')); break; }
-      const dt = v ? new Date(v) : new Date();
-      const keepUnknown = draft.original ? draft.original.muscles.filter(m => !MUSCLES[m]) : [];
-      if (!draft.id) trackSession(state.settings.entry === 'muscles' ? 'muscles' : 'groupes');
-      upsertSession({ id: draft.id || uid(), datetime: (isNaN(dt) ? new Date() : dt).toISOString(), muscles: [...draft.sel, ...keepUnknown] });
-      closeOverlay(); toast(t('saved')); break;
-    }
+    case 'saveworkout': commitWorkout(false); break;
     case 'delete': {
       if (!confirm(t('confirmDelete'))) break;
       const removed = deleteSession(draft.id);
@@ -808,7 +888,7 @@ initSync({
   data: () => { applyPendingLang(); setLang(state.settings.lang); applyTheme(); if (ui.unlocked) { render(); if (ui.overlay && ui.overlay !== 'workout') renderOverlay(); } },
 }).then(ok => {
   if (ok) { if (!ui.unlocked) unlock(); if (isLocal()) startBackupReminders(); maybeOnboard(); }
-}).finally(() => { started = true; countOpen(); });
+}).finally(() => { started = true; countOpen(); if (ui.unlocked && !ui.overlay) render(); });
 
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
