@@ -424,3 +424,13 @@ details.why .txt b { color: var(--ink); }
 .nlist li::before { content: ""; position: absolute; left: 2px; top: 7px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
 .nlist b { font-size: 15px; font-weight: 600; }
 .nlist span { font-size: 13.5px; line-height: 1.4; color: var(--muted); }
+
+/* v2.16 — fiches : cases à cocher + « Ajouter à la séance » */
+.mlist li.pick { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.mlist li.pick[aria-disabled] { cursor: default; }
+.mlist .side .box { margin-top: 4px; }
+.mlist .side .when2.done, .lrow .tmain em.done { color: var(--rec-ink); font-weight: 600; font-style: normal; }
+.box.done { background: var(--rec); border-color: var(--rec); }
+.lrow.exm.pick { min-height: 62px; gap: 14px; }
+.lrow.exm.pick[disabled] { opacity: 1; cursor: default; }
+.sheet .foot .btn[disabled] { opacity: .4; pointer-events: none; }

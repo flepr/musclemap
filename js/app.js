@@ -10,7 +10,7 @@ import { backupCard, startBackupReminders, backupSeen } from './backup.js';
 import { trackOpen, trackSession, trackEvent, statsConfigured, statsOn, setStats, migrateStatsChoice } from './stats.js';
 import { isStandalone, guideHTML, installCard, startReminders, stopReminders, markSeen, promptInstall, onInstallChange, appUrl, tx, inAppBrowser, hostApp, intentUrl, isAndroid } from './install.js';
 
-const VERSION = '2.15.2';
+const VERSION = '2.16';
 /* Carte « Nouveautés » : montrée une fois aux personnes déjà inscrites (pas aux nouvelles, qui découvrent tout
    à l'accueil). Fermée = réglage synchronisé, elle ne revient sur aucun appareil. Changer NEWS pour en publier une autre. */
 const NEWS = '2.15';
@@ -357,13 +357,23 @@ function exercisesFor(g) {
   const ms = GROUPS[g].muscles, xs = EXERCISES.filter(x => x.m.some(m => ms.includes(m)));
   return [...xs.filter(x => ms.includes(x.m[0])), ...xs.filter(x => !ms.includes(x.m[0]))];
 }
-function openEx(id, from) { if (!EX_BY_ID[id]) return; ui.sheet = { ex: id, from: from || null }; document.body.classList.add('locked'); renderSheet(); const sc = $('#sheet .scroll'); if (sc) sc.scrollTop = 0; }
+function openEx(id, from) { if (!EX_BY_ID[id]) return; ui.sheet = { ex: id, from: from || null, sel: exPreselect(EX_BY_ID[id]) }; document.body.classList.add('locked'); renderSheet(); const sc = $('#sheet .scroll'); if (sc) sc.scrollTop = 0; }
 function renderExSheet() {
   const x = EX_BY_ID[ui.sheet.ex], p = pal(), from = ui.sheet.from;
   const set = new Set(x.m);
   const fig = bodyPair(m => set.has(m) ? p.sel : isTracked(m) ? p.dim : p.off, p, { label: exName(x) });
-  const rows = exGroups(x).map(it => `<button class="lrow exm" data-act="sheet" data-g="${it.group}"><span class="tmain"><b>${esc(gName(it.group))}</b><span>${esc(it.whole && it.muscles.length > 1 ? cap(it.muscles.map(mShort).join(', ')) : it.muscles.map(mName).join(', '))}</span></span>${I.chev}</button>`).join('');
-  const log = x.m.filter(isTracked);
+  const done = inSession(), sel = ui.sheet.sel || (ui.sheet.sel = exPreselect(x));
+  const units = [];
+  for (const it of exGroups(x)) {
+    if (it.whole && it.muscles.length > 1) units.push({ ms: it.muscles, title: gName(it.group), sub: cap(it.muscles.map(mShort).join(', ')) });
+    else it.muscles.forEach(m => units.push({ ms: [m], title: mName(m), sub: gName(it.group) }));
+  }
+  const rows = units.map(u => {
+    const isDone = u.ms.every(m => done.has(m)), free = u.ms.filter(m => !done.has(m));
+    const on = !isDone && free.every(m => sel.has(m));
+    const extra = isDone ? ` · <em class="done">${esc(t('inSession'))}</em>` : !u.ms.some(isTracked) ? ` · ${esc(t('notTracked'))}` : '';
+    return `<button class="lrow exm pick" ${isDone ? 'disabled' : `data-act="pick" data-ms="${u.ms.join(',')}"`} role="checkbox" aria-checked="${on || isDone}">${sheetBox(on, isDone)}<span class="tmain"><b>${esc(u.title)}</b><span>${esc(u.sub)}${extra}</span></span></button>`;
+  }).join('');
   $('#sheet').innerHTML = `<div class="sheet-wrap"><div class="sheet-bg" data-act="closesheet"></div>
     <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="sh-t"><div class="grab"></div>
       <div class="scroll">
@@ -378,7 +388,7 @@ function renderExSheet() {
         ${x.n ? `<p class="exnote">${esc(L(x.n))}</p>` : ''}
         <p class="note" style="padding:12px 2px 4px">${esc(t('exPrimaryNote'))}</p>
       </div>
-      <div class="foot"><button class="btn" data-act="workout-with" data-ms="${(log.length ? log : x.m).join(',')}">${I.check.replace('width="14" height="14"', 'width="20" height="20"')}${esc(t('exLog'))}</button></div>
+      ${sheetFoot()}
     </section></div>`;
 }
 function exListHTML() {
@@ -399,7 +409,52 @@ function exListHTML() {
 }
 
 /* ---------- fiche d'un groupe (panneau du bas) ---------- */
-function openSheet(g) { ui.sheet = { g }; document.body.classList.add('locked'); renderSheet(); }
+function openSheet(g) { ui.sheet = { g, sel: groupPreselect(g) }; document.body.classList.add('locked'); renderSheet(); }
+/* Fiches (groupe musculaire, exercice) : on coche des muscles, puis « Ajouter à la séance ».
+   Les muscles déjà dans la séance en cours sont affichés en vert, jamais re-cochés. */
+function inSession() { const s = openSession(); return new Set(s ? knownMuscles(s.muscles) : []); }
+/* Groupe : les muscles « à travailler » ; s'il n'y en a pas, tout le groupe (muscles suivis) */
+function groupPreselect(g) {
+  const done = inSession(), states = allStates(), ms = GROUPS[g].muscles;
+  const tm = trackedMuscles(g).length ? trackedMuscles(g) : ms;
+  const late = tm.filter(m => states[m].state === 'target' && !done.has(m));
+  return new Set(late.length ? late : tm.filter(m => !done.has(m)));
+}
+/* Exercice : tous ses muscles principaux suivis (ou tous s'il n'y en a aucun de suivi) */
+function exPreselect(x) {
+  const done = inSession(), tm = x.m.filter(isTracked);
+  return new Set((tm.length ? tm : x.m).filter(m => !done.has(m)));
+}
+function pickMuscles(ms) {
+  const done = inSession(), sel = ui.sheet.sel, free = ms.filter(m => !done.has(m));
+  if (!free.length) return;
+  if (free.every(m => sel.has(m))) free.forEach(m => sel.delete(m)); else free.forEach(m => sel.add(m));
+  renderSheet();
+}
+function sheetBox(on, done) { return `<span class="box${done ? ' on done' : on ? ' on' : ''}">${on || done ? I.check.replace('width="14" height="14"', 'width="16" height="16"') : ''}</span>`; }
+function sheetFoot() {
+  const done = inSession(), n = [...ui.sheet.sel].filter(m => !done.has(m)).length;
+  return `<div class="foot"><button class="btn" data-act="addsel"${n ? '' : ' disabled'}>${I.plus.replace('width="28" height="28"', 'width="20" height="20"')}${esc(t('addToWorkout'))}</button></div>`;
+}
+/* Ajout direct à la séance en cours (ou en démarre une), avec « Annuler » */
+function addToWorkout(list) {
+  const ms = [...new Set(list)].filter(m => MUSCLES[m]);
+  if (!ms.length) return;
+  const now = Date.now(), cur = openSession(now);
+  let undo;
+  if (cur) {
+    const before = { muscles: [...cur.muscles], lastAt: cur.lastAt };
+    upsertSession({ ...cur, muscles: [...cur.muscles, ...ms.filter(m => !cur.muscles.includes(m))], lastAt: now });
+    undo = () => { const x = state.sessions.find(s => s.id === cur.id); if (x) upsertSession({ ...x, ...before }); };
+  } else {
+    trackSession('fiche');
+    const rec = { id: uid(), datetime: new Date(now).toISOString(), muscles: ms, open: true, lastAt: now };
+    upsertSession(rec);
+    undo = () => deleteSession(rec.id);
+  }
+  closeSheet(); render();
+  toast(t('liveSaved', { x: listText(sessionGroups(ms).map(x => low(gName(x.group)))) }), t('undo'), () => { undo(); render(); });
+}
 function closeSheet() { ui.sheet = null; $('#sheet').innerHTML = ''; if (!ui.overlay) document.body.classList.remove('locked'); }
 function renderSheet() {
   if (ui.sheet.ex) return renderExSheet();
@@ -407,20 +462,17 @@ function renderSheet() {
   for (const s of state.sessions) { const ts = new Date(s.datetime).getTime(); for (const m of s.muscles) if (!last[m] || ts > last[m]) last[m] = ts; }
   const ms = GROUPS[g].muscles;
   const fig = groupFigure(ms, m => { const i = ms.indexOf(m); return i < 0 ? p.dim : p.tones[i]; }, p, gName(g));
+  const done = inSession(), sel = ui.sheet.sel || (ui.sheet.sel = groupPreselect(g));
   const rows = ms.map((m, i) => {
-    const st = states[m], tr = isTracked(m);
+    const st = states[m], isDone = done.has(m), on = !isDone && sel.has(m);
     const lab = { recover: t('stRecover'), ready: t('stReady'), target: t('stTarget'), off: t('stOff') }[st.state];
     const cls = { recover: 'rec', ready: 'ready', target: 'tgt', off: 'off' }[st.state];
     const mm = L(MUSCLES[m]);
-    return `<li><span class="tone" style="background:${p.tones[i]}"></span>
+    return `<li class="pick" ${isDone ? 'aria-disabled="true"' : `data-act="pick" data-ms="${m}" tabindex="0"`} role="checkbox" aria-checked="${on || isDone}"><span class="tone" style="background:${p.tones[i]}"></span>
       <div class="info"><b>${esc(mm.name)}</b><span class="sci">${esc(mm.sci)}</span><span class="role">${esc(mm.role)}</span><span class="ex">${esc(mm.ex)}</span></div>
-      <div class="side"><span class="lab ${cls}">${esc(lab)}</span><span class="when2">${esc(rel(st, last[m]) + (st.state === 'recover' ? ' · ' + t('recLeft', { n: Math.max(1, Math.ceil(st.rec - st.hours)) }) : ''))}</span>
-        <span class="trackline"><span class="sr">${esc(t('track'))}</span><button class="switch sm" role="switch" aria-checked="${tr}" aria-label="${esc(t('track'))} : ${esc(mm.name)}" data-act="track" data-m="${m}"><i></i></button></span></div></li>`;
+      <div class="side"><span class="lab ${cls}">${esc(lab)}</span>${isDone ? `<span class="when2 done">${esc(t('inSession'))}</span>` : `<span class="when2">${esc(rel(st, last[m]) + (st.state === 'recover' ? ' · ' + t('recLeft', { n: Math.max(1, Math.ceil(st.rec - st.hours)) }) : ''))}</span>`}
+        ${sheetBox(on, isDone)}</div></li>`;
   }).join('');
-  const late = ms.filter(m => isTracked(m) && states[m].state === 'target');
-  const foot = late.length
-    ? `<button class="btn" data-act="workout-with" data-ms="${late.join(',')}">${I.target}${esc(t('targetThese', { x: late.length === ms.filter(isTracked).length ? low(gName(g)) : late.map(m => low(mName(m))).join(' + ') }))}</button>`
-    : `<button class="btn ghost" data-act="workout-with" data-ms="${(trackedMuscles(g).length ? trackedMuscles(g) : ms).join(',')}">${esc(t('recordGroup'))}</button>`;
   const prev = $('#sheet .scroll');
   const y = prev ? prev.scrollTop : 0;
   $('#sheet').innerHTML = `<div class="sheet-wrap"><div class="sheet-bg" data-act="closesheet"></div>
@@ -434,7 +486,7 @@ function renderSheet() {
         <ul class="mlist">${rows}</ul>
         ${groupExercises(g)}
       </div>
-      <div class="foot">${foot}</div>
+      ${sheetFoot()}
     </section></div>`;
   const nx = $('#sheet .scroll'); if (nx) nx.scrollTop = y;
 }
@@ -618,7 +670,7 @@ function workoutHTML() {
     ? `<button class="btn" data-act="saveworkout">${check}${esc(t('saveEdit'))}</button>`
     : draft.live && !pending
       ? `<button class="btn" data-act="finishworkout">${check}${esc(t('finishWorkout'))}</button>`
-      : `<button class="btn" data-act="saveworkout">${check}${esc(t('validate'))}</button><button class="btn ghost slim" data-act="finishworkout">${esc(t('validateFinish'))}</button>`;
+      : `<button class="btn" data-act="saveworkout">${I.plus.replace('width="28" height="28"', 'width="20" height="20"')}${esc(t('addToWorkout'))}</button><button class="btn ghost slim" data-act="finishworkout">${esc(t('addFinish'))}</button>`;
   return `<div class="ohdr"><button class="iconbtn" data-act="closeov" aria-label="${esc(t('close'))}">${I.x}</button><h1>${esc(draft.live ? t('liveTitle') : draft.id ? t('editWorkout') : t('newWorkout'))}</h1><span></span></div>
     <div class="scroll"><div class="olist">
       <div class="when">${draft.live
@@ -878,7 +930,8 @@ document.addEventListener('click', e => {
   switch (a) {
     case 'tab': ui.tab = d.tab; window.scrollTo(0, 0); render(); break;
     case 'workout': openWorkout(openSession()); break;
-    case 'workout-with': openWorkout(openSession(), d.ms.split(',')); break;
+    case 'pick': pickMuscles(d.ms.split(',')); break;
+    case 'addsel': if (ui.sheet && ui.sheet.sel) { const done = inSession(); addToWorkout([...ui.sheet.sel].filter(m => !done.has(m))); } break;
     case 'livefinish': finishLive(); break;
     case 'newsx': updateSettings({ news: NEWS }); render(); break;
     case 'newsgo': updateSettings({ news: NEWS }); ui.tab = 'muscles'; ui.search = 'dips'; window.scrollTo(0, 0); render(); break;
@@ -960,6 +1013,7 @@ document.addEventListener('input', e => {
   if (e.target.id === 'dt' && draft) draft.datetime = e.target.value;
 });
 document.addEventListener('keydown', e => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('li.pick[data-act]')) { e.preventDefault(); e.target.click(); return; }
   if (e.key !== 'Escape') return;
   if (ui.sheet) closeSheet(); else if (ui.overlay && ui.overlay !== 'onb') closeOverlay();
 });
