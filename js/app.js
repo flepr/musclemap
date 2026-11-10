@@ -9,7 +9,7 @@ import { backupCard, startBackupReminders, backupSeen } from './backup.js';
 import { trackOpen, trackSession, trackEvent, statsConfigured, statsOn, setStats, migrateStatsChoice } from './stats.js';
 import { isStandalone, guideHTML, installCard, startReminders, stopReminders, markSeen, promptInstall, onInstallChange, appUrl, tx, inAppBrowser, hostApp, intentUrl, isAndroid } from './install.js';
 
-const VERSION = '2.13.3';
+const VERSION = '2.13.4';
 const $ = s => document.querySelector(s);
 const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const cap = s => s ? s.charAt(0).toLocaleUpperCase(locale()) + s.slice(1) : s;
@@ -278,7 +278,7 @@ function viewMuscles() {
     body = hits.length ? `<div style="display:flex;flex-direction:column;gap:6px">${hits.map(m => `<button class="lrow" style="min-height:62px;padding-left:14px" data-act="sheet" data-g="${GROUP_OF[m]}"><span class="tmain"><b>${esc(mName(m))}</b><span>${esc(gName(GROUP_OF[m]))} · ${esc(L(MUSCLES[m], 'sci'))}</span></span>${I.chev}</button>`).join('')}</div>`
       : `<div class="empty">${esc(t('noResult'))}</div>`;
   } else {
-    const cards = [1, 2, 3].map(n => `<button class="bcard${n === 1 ? ' dark' : ''}" data-act="article" data-a="${n}"><small>${esc(t('art' + n + 'Eyebrow'))}</small><b>${esc(t('art' + n + 'Title'))}</b><span>${esc(t('art' + n + 'Sub'))}</span></button>`).join('');
+    const cards = [1, 2, 3].map(n => `<button class="bcard" data-act="article" data-a="${n}"><small>${esc(t('art' + n + 'Eyebrow'))}</small><b>${esc(t('art' + n + 'Title'))}</b><span>${esc(t('art' + n + 'Sub'))}</span></button>`).join('');
     const fams = FAMILIES.map(f => `<section style="display:flex;flex-direction:column;gap:6px"><h2 class="sect">${esc(fName(f.id))}</h2>${f.groups.map(g => `<button class="lrow" data-act="sheet" data-g="${g}"><span class="thumb">${groupThumb(g)}</span><span class="tmain"><b>${esc(gName(g))}</b><span>${esc(gSci(g))}</span></span><span class="n">${groupDot(g, states)}${GROUPS[g].muscles.length}</span>${I.chev}</button>`).join('')}</section>`).join('');
     body = `<section style="display:flex;flex-direction:column;gap:8px"><h2 class="sect">${esc(t('basics'))}</h2><div class="basics">${cards}</div></section>${fams}`;
   }
