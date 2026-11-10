@@ -412,3 +412,15 @@ details.why .txt b { color: var(--ink); }
 .linkbtn { display: inline-flex; align-items: center; gap: 2px; margin: 12px 0 6px; padding: 4px 2px; font-size: 14.5px; font-weight: 600; color: var(--amber-ink); }
 .linkbtn .chev { width: 16px; height: 16px; }
 .exlist { padding: 4px 16px 30px; display: flex; flex-direction: column; gap: 10px; }
+
+/* ---------- carte « Nouveautés » (v2.15.1) ---------- */
+.newscard { padding: 14px 14px 14px 16px; display: flex; flex-direction: column; gap: 12px; border-color: var(--amber-line); }
+.newscard .nhead { display: flex; align-items: flex-start; gap: 12px; }
+.newscard .nhead small { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--amber-ink); }
+.newscard .nhead b { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 21px; line-height: 1.1; text-transform: uppercase; margin-top: 2px; }
+.newscard .iconbtn { margin: -10px -8px 0 0; color: var(--muted); }
+.nlist { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.nlist li { display: flex; flex-direction: column; gap: 2px; padding-left: 16px; position: relative; }
+.nlist li::before { content: ""; position: absolute; left: 2px; top: 7px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.nlist b { font-size: 15px; font-weight: 600; }
+.nlist span { font-size: 13.5px; line-height: 1.4; color: var(--muted); }

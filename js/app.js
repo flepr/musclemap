@@ -10,7 +10,10 @@ import { backupCard, startBackupReminders, backupSeen } from './backup.js';
 import { trackOpen, trackSession, trackEvent, statsConfigured, statsOn, setStats, migrateStatsChoice } from './stats.js';
 import { isStandalone, guideHTML, installCard, startReminders, stopReminders, markSeen, promptInstall, onInstallChange, appUrl, tx, inAppBrowser, hostApp, intentUrl, isAndroid } from './install.js';
 
-const VERSION = '2.15';
+const VERSION = '2.15.1';
+/* Carte « Nouveautés » : montrée une fois aux personnes déjà inscrites (pas aux nouvelles, qui découvrent tout
+   à l'accueil). Fermée = réglage synchronisé, elle ne revient sur aucun appareil. Changer NEWS pour en publier une autre. */
+const NEWS = '2.15';
 const $ = s => document.querySelector(s);
 const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const cap = s => s ? s.charAt(0).toLocaleUpperCase(locale()) + s.slice(1) : s;
@@ -144,6 +147,18 @@ function syncLine() {
   return t('syncing');
 }
 
+/* ---------- carte « Nouveautés » ---------- */
+function newsCard() {
+  if (!state.settings.onboarded || state.settings.news === NEWS) return '';
+  const items = [1, 2, 3].map(n => `<li><b>${esc(t('news' + n + 'Title'))}</b><span>${esc(t('news' + n + 'Text'))}</span></li>`).join('');
+  return `<section class="card newscard" aria-labelledby="news-h">
+    <div class="nhead"><div class="tmain"><small>${esc(t('newsEyebrow'))}</small><b id="news-h">${esc(t('newsTitle', { v: NEWS }))}</b></div>
+      <button class="iconbtn" data-act="newsx" aria-label="${esc(t('close'))}">${I.x.replace('width="22" height="22"', 'width="20" height="20"')}</button></div>
+    <ul class="nlist">${items}</ul>
+    <div class="ibtns"><button class="btn small acc" data-act="newsgo">${esc(t('newsTry'))}</button><button class="btn small" data-act="newsx">${esc(t('newsOk'))}</button></div>
+  </section>`;
+}
+
 /* ---------- carte « Séance en cours » (onglet Carte) ---------- */
 function groupTags(muscles) {
   return sessionGroups(knownMuscles(muscles)).map(x => x.whole ? `<span class="stag">${esc(gName(x.group))}</span>` : `<span class="stag part">${esc(gName(x.group))}<i> · ${esc(x.muscles.map(mShort).join(', '))}</i></span>`).join('');
@@ -215,7 +230,7 @@ function viewMap() {
       <h1 class="h1" style="margin-top:4px">${esc(title)}</h1>
       ${sub ? `<p class="note" style="padding:6px 0 0">${esc(sub)}</p>` : ''}
     </div>
-    ${openSession() ? liveCard() : reminderCard()}
+    ${openSession() ? liveCard() : newsCard() || reminderCard()}
     <section class="card mapcard" aria-label="${esc(t('mapLabel'))}">
       <div data-bodyact="sheet">${bodyPair(mapFill(states, pal()), pal(), { interactive: true, label: t('mapLabel') })}</div>
       <div class="views"><span>${esc(t('viewFront'))}</span><span>${esc(t('viewBack'))}</span></div>
@@ -865,6 +880,8 @@ document.addEventListener('click', e => {
     case 'workout': openWorkout(openSession()); break;
     case 'workout-with': openWorkout(openSession(), d.ms.split(',')); break;
     case 'livefinish': finishLive(); break;
+    case 'newsx': updateSettings({ news: NEWS }); render(); break;
+    case 'newsgo': updateSettings({ news: NEWS }); ui.tab = 'muscles'; ui.search = 'dips'; window.scrollTo(0, 0); render(); break;
     case 'finishworkout': commitWorkout(true); break;
     case 'edit': { const s = state.sessions.find(x => x.id === d.id); if (s) openWorkout(s); break; }
     case 'sheet': openSheet(d.g); break;
@@ -905,7 +922,7 @@ document.addEventListener('click', e => {
     case 'onbnext': { ui.onbStep = (ui.onbStep || 1) + 1; renderOverlay(); const sc = $('#overlay .scroll'); if (sc) sc.scrollTop = 0; break; }
     case 'onbinst': stopReminders(); // puis comme « onbdone »
     // falls through
-    case 'onbdone': trackEvent('onboarding-termine'); startReminders(); updateSettings({ onboarded: true }); ui.onbStep = 1; ui.instTab = null; closeOverlay(); break;
+    case 'onbdone': trackEvent('onboarding-termine'); startReminders(); updateSettings({ onboarded: true, news: NEWS }); ui.onbStep = 1; ui.instTab = null; closeOverlay(); break;
     /* installation sur l'écran d'accueil */
     case 'insttab': ui.instTab = d.v; renderOverlay(); break;
     case 'instopen': if (d.from === 'card') { markSeen(); cardHandled(); } ui.instTab = null; ui.overlay = 'install'; document.body.classList.add('locked'); renderOverlay(); render(); break;
@@ -913,7 +930,7 @@ document.addEventListener('click', e => {
     case 'instalready': stopReminders(); cardHandled(); render(); break;
     case 'instnow': promptInstall().then(ok => {
       if (!ok) { renderOverlay(); return; }
-      if (ui.overlay === 'onb') { updateSettings({ onboarded: true }); ui.onbStep = 1; }
+      if (ui.overlay === 'onb') { updateSettings({ onboarded: true, news: NEWS }); ui.onbStep = 1; }
       ui.instTab = null; closeOverlay(); toast(t('instThanks'));
     }); break;
     case 'instcopy': (navigator.clipboard ? navigator.clipboard.writeText(appUrl()) : Promise.reject()).then(() => toast(t('instCopied')), () => toast(appUrl())); break;

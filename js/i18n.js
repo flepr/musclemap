@@ -65,6 +65,10 @@ const S = {
     liveContinue: 'Continuer', liveFinish: 'Terminer',
     liveSaved: 'Validé : {x} · séance en cours', liveUpdated: 'Séance mise à jour', liveDone: 'Séance terminée',
     bubbleOff: 'décoché',
+    newsEyebrow: 'Nouveau', newsTitle: 'Nouveautés de la version {v}', newsTry: 'Essayer la recherche', newsOk: 'OK, compris',
+    news1Title: 'Valide au fur et à mesure', news1Text: 'Note tes muscles après chaque exercice : tout reste dans la même séance, qui se termine seule 1 h après le dernier muscle validé.',
+    news2Title: 'Le nom du muscle touché', news2Text: 'Pendant la saisie, une bulle affiche le nom de ce que tu touches.',
+    news3Title: 'Quels muscles pour quel exercice ?', news3Text: 'L’onglet Muscles devient Explorer : cherche « dips » ou « squat » parmi 189 exercices pour voir les muscles travaillés.',
 
     history: 'Historique', sessionsSince: '{n} séances au total', sessionsSince1: '1 séance au total',
     tileSessions: 'séances · 7 j', tileGroups: 'groupes musculaires · 7 j', tileTarget: 'muscles à travailler',
@@ -216,6 +220,10 @@ const S = {
     liveContinue: 'Continue', liveFinish: 'Finish',
     liveSaved: 'Saved: {x} · workout in progress', liveUpdated: 'Workout updated', liveDone: 'Workout finished',
     bubbleOff: 'unselected',
+    newsEyebrow: 'New', newsTitle: 'New in version {v}', newsTry: 'Try the search', newsOk: 'Got it',
+    news1Title: 'Save as you go', news1Text: 'Log your muscles after each exercise: it all stays in one workout, which ends on its own 1 h after the last muscle you saved.',
+    news2Title: 'See the name of the muscle you tap', news2Text: 'While logging, a bubble shows the name of what you tap.',
+    news3Title: 'Which muscles for which exercise?', news3Text: 'The Muscles tab becomes Explore: search “dips” or “squat” among 189 exercises to see the muscles they work.',
 
     history: 'History', sessionsSince: '{n} workouts in total', sessionsSince1: '1 workout in total',
     tileSessions: 'workouts · 7 d', tileGroups: 'muscle groups · 7 d', tileTarget: 'muscles to target',
