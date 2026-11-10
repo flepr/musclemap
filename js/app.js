@@ -1,5 +1,6 @@
 /* MuscleMap — interface */
 import { FAMILIES, GROUPS, MUSCLES, SHORT, GROUP_OF, ALL_MUSCLES, STUDIES, DEFAULTS } from './data.js';
+import { EXERCISES, EQUIP, EX_BY_ID } from './exercises.js';
 import { t, L, setLang, lang, locale } from './i18n.js';
 import { state, load, save, upsertSession, deleteSession, restoreSession, updateSettings, uid, parseData, mergeInto, serialize } from './store.js';
 import { allStates, targets, priority, nextTarget, isTracked, trackedMuscles, sessionGroups, knownMuscles, openSession, closeStale, closedCopy, liveEnds, AUTO_CLOSE } from './logic.js';
@@ -9,7 +10,7 @@ import { backupCard, startBackupReminders, backupSeen } from './backup.js';
 import { trackOpen, trackSession, trackEvent, statsConfigured, statsOn, setStats, migrateStatsChoice } from './stats.js';
 import { isStandalone, guideHTML, installCard, startReminders, stopReminders, markSeen, promptInstall, onInstallChange, appUrl, tx, inAppBrowser, hostApp, intentUrl, isAndroid } from './install.js';
 
-const VERSION = '2.14';
+const VERSION = '2.15';
 const $ = s => document.querySelector(s);
 const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const cap = s => s ? s.charAt(0).toLocaleUpperCase(locale()) + s.slice(1) : s;
@@ -293,24 +294,100 @@ function viewMuscles() {
       const hay = [MUSCLES[m].fr.name, MUSCLES[m].fr.sci, MUSCLES[m].en.name, MUSCLES[m].en.sci, GROUPS[g].fr, GROUPS[g].en, GROUPS[g].sciFr, GROUPS[g].sciEn].join(' ');
       return norm(hay).includes(q);
     });
-    body = hits.length ? `<div style="display:flex;flex-direction:column;gap:6px">${hits.map(m => `<button class="lrow" style="min-height:62px;padding-left:14px" data-act="sheet" data-g="${GROUP_OF[m]}"><span class="tmain"><b>${esc(mName(m))}</b><span>${esc(gName(GROUP_OF[m]))} · ${esc(L(MUSCLES[m], 'sci'))}</span></span>${I.chev}</button>`).join('')}</div>`
-      : `<div class="empty">${esc(t('noResult'))}</div>`;
+    const exHits = searchExercises(q);
+    const mHtml = hits.map(m => `<button class="lrow" style="min-height:62px;padding-left:14px" data-act="sheet" data-g="${GROUP_OF[m]}"><span class="tmain"><b>${esc(mName(m))}</b><span>${esc(gName(GROUP_OF[m]))} · ${esc(L(MUSCLES[m], 'sci'))}</span></span>${I.chev}</button>`).join('');
+    const exSec = exHits.length ? `<section class="col6"><h2 class="sect">${esc(t('exercises'))} · ${exHits.length}</h2>${exHits.map(x => exRow(x)).join('')}</section>` : '';
+    const mSec = hits.length ? `<section class="col6"><h2 class="sect">${esc(t('resMuscles'))} · ${hits.length}</h2>${mHtml}</section>` : '';
+    // un nom de muscle tapé (« ischios ») : les muscles d'abord ; un nom d'exercice : les exercices d'abord
+    const exFirst = exHits.length && (!hits.length || exHits.some(x => norm(x.fr + ' ' + x.en).includes(q)));
+    body = hits.length || exHits.length ? (exFirst ? exSec + mSec : mSec + exSec) : `<div class="empty">${esc(t('noResult'))}</div>`;
   } else {
     const cards = [1, 2, 3].map(n => `<button class="bcard" data-act="article" data-a="${n}"><small>${esc(t('art' + n + 'Eyebrow'))}</small><b>${esc(t('art' + n + 'Title'))}</b><span>${esc(t('art' + n + 'Sub'))}</span></button>`).join('');
     const fams = FAMILIES.map(f => `<section style="display:flex;flex-direction:column;gap:6px"><h2 class="sect">${esc(fName(f.id))}</h2>${f.groups.map(g => `<button class="lrow" data-act="sheet" data-g="${g}"><span class="thumb">${groupThumb(g)}</span><span class="tmain"><b>${esc(gName(g))}</b><span>${esc(gSci(g))}</span></span><span class="n">${groupDot(g, states)}${GROUPS[g].muscles.length}</span>${I.chev}</button>`).join('')}</section>`).join('');
-    body = `<section style="display:flex;flex-direction:column;gap:8px"><h2 class="sect">${esc(t('basics'))}</h2><div class="basics">${cards}</div></section>${fams}`;
+    const exSec = `<section class="col6"><h2 class="sect">${esc(t('exercises'))}</h2><button class="lrow" data-act="exlist"><span class="thumb exthumb">${exThumb()}</span><span class="tmain"><b>${esc(t('exBrowse'))}</b><span>${esc(t('exBrowseSub', { n: EXERCISES.length }))}</span></span>${I.chev}</button></section>`;
+    body = `<section style="display:flex;flex-direction:column;gap:8px"><h2 class="sect">${esc(t('basics'))}</h2><div class="basics">${cards}</div></section>${exSec}${fams}`;
   }
   return `<div class="screen">
-    <header class="hdr" style="align-items:flex-end"><h1 class="h1 big">${esc(t('muscles'))}</h1><span class="note" style="padding:0">${esc(t('musclesMeta'))}</span></header>
+    <header class="hdr" style="align-items:flex-end"><h1 class="h1 big">${esc(t('muscles'))}</h1><span class="note" style="padding:0">${esc(t('musclesMeta', { e: EXERCISES.length }))}</span></header>
     <label class="search">${I.search}<span class="sr">${esc(t('searchLabel'))}</span><input type="search" id="q" value="${esc(ui.search)}" placeholder="${esc(t('search'))}" autocomplete="off"></label>
     ${body}
   </div>`;
+}
+
+/* ---------- exercices ---------- */
+const exName = x => x[lang()] || x.en;
+const exOther = x => lang() === 'fr' ? x.en : x.fr;
+const exEq = x => x.eq.map(e => L(EQUIP[e])).join(' · ');
+const exGroups = x => sessionGroups(x.m);
+const exWords = x => x._w || (x._w = norm([x.fr, x.en, x.a].join(' ')).replace(/[-’'(),]/g, ' ').split(/\s+/).filter(Boolean));
+/* chaque mot tapé doit commencer un mot du nom ou d'un autre nom ; le nom dans la langue de l'app passe devant */
+function searchExercises(q) {
+  const words = q.replace(/[-’']/g, ' ').split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+  const rank = x => { const n = norm(exName(x)); return n.startsWith(q) ? 0 : n.includes(q) ? 1 : norm(exOther(x)).includes(q) ? 2 : 3; };
+  return EXERCISES.filter(x => words.every(w => exWords(x).some(h => h.startsWith(w))))
+    .map(x => [rank(x), x]).sort((a, b) => a[0] - b[0] || exName(a[1]).localeCompare(exName(b[1]), locale())).map(r => r[1]);
+}
+function exRow(x, from) {
+  const gs = exGroups(x).map((it, i) => i ? low(gName(it.group)) : gName(it.group)).join(' · ');
+  return `<button class="lrow exrow" data-act="ex" data-id="${x.id}"${from ? ` data-from="${from}"` : ''}><span class="tmain"><b>${esc(exName(x))}</b><span>${esc(gs)}<em> · ${esc(exEq(x))}</em></span></span>${I.chev}</button>`;
+}
+function exThumb() {
+  const p = pal(), on = new Set(['pec_mil', 'pec_bas', 'delt_ant', 'tri_lat', 'tri_med', 'tri_long']);
+  return groupFigure(['pec_mil', 'pec_bas', 'delt_ant', 'tri_lat'], m => on.has(m) ? p.sel : p.dim, p, '');
+}
+/* exercices d'un groupe : d'abord ceux dont c'est le muscle principal (dans l'ordre de la liste, les
+   classiques en tête), puis ceux qui le travaillent aussi */
+function exercisesFor(g) {
+  const ms = GROUPS[g].muscles, xs = EXERCISES.filter(x => x.m.some(m => ms.includes(m)));
+  return [...xs.filter(x => ms.includes(x.m[0])), ...xs.filter(x => !ms.includes(x.m[0]))];
+}
+function openEx(id, from) { if (!EX_BY_ID[id]) return; ui.sheet = { ex: id, from: from || null }; document.body.classList.add('locked'); renderSheet(); const sc = $('#sheet .scroll'); if (sc) sc.scrollTop = 0; }
+function renderExSheet() {
+  const x = EX_BY_ID[ui.sheet.ex], p = pal(), from = ui.sheet.from;
+  const set = new Set(x.m);
+  const fig = bodyPair(m => set.has(m) ? p.sel : isTracked(m) ? p.dim : p.off, p, { label: exName(x) });
+  const rows = exGroups(x).map(it => `<button class="lrow exm" data-act="sheet" data-g="${it.group}"><span class="tmain"><b>${esc(gName(it.group))}</b><span>${esc(it.whole && it.muscles.length > 1 ? cap(it.muscles.map(mShort).join(', ')) : it.muscles.map(mName).join(', '))}</span></span>${I.chev}</button>`).join('');
+  const log = x.m.filter(isTracked);
+  $('#sheet').innerHTML = `<div class="sheet-wrap"><div class="sheet-bg" data-act="closesheet"></div>
+    <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="sh-t"><div class="grab"></div>
+      <div class="scroll">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-top:6px">
+          ${from ? `<button class="iconbtn" data-act="sheet" data-g="${from}" aria-label="${esc(t('back'))}" style="margin:-6px 0 0 -10px;flex:none">${I.back}</button>` : ''}
+          <div style="flex:1;min-width:0"><h2 id="sh-t" class="exh">${esc(exName(x))}</h2><div class="note" style="padding:4px 0 0;font-size:14px">${esc(exOther(x))} · ${esc(exEq(x))}</div></div>
+          <button class="iconbtn" data-act="closesheet" aria-label="${esc(t('close'))}" style="margin:-6px -8px 0 0;flex:none">${I.x}</button>
+        </div>
+        <div class="figbox exfig">${fig}</div>
+        <h3 class="sect" style="padding:16px 2px 8px">${esc(t('exPrimary'))}</h3>
+        <div class="col6">${rows}</div>
+        ${x.n ? `<p class="exnote">${esc(L(x.n))}</p>` : ''}
+        <p class="note" style="padding:12px 2px 4px">${esc(t('exPrimaryNote'))}</p>
+      </div>
+      <div class="foot"><button class="btn" data-act="workout-with" data-ms="${(log.length ? log : x.m).join(',')}">${I.check.replace('width="14" height="14"', 'width="20" height="20"')}${esc(t('exLog'))}</button></div>
+    </section></div>`;
+}
+function exListHTML() {
+  const g = ui.exGroup, eq = ui.exEq || 'all';
+  let xs = g ? exercisesFor(g) : EXERCISES;
+  if (eq !== 'all') xs = xs.filter(x => x.eq.includes(eq));
+  const chip = (v, label) => `<button class="chip" data-act="exeq" data-v="${v}" aria-pressed="${eq === v}">${esc(label)}</button>`;
+  const chips = chip('all', t('exAllEq')) + Object.keys(EQUIP).map(k => chip(k, L(EQUIP[k]))).join('');
+  let list = '';
+  if (!xs.length) list = `<div class="empty">${esc(t('exNone'))}</div>`;
+  else if (g) list = `<div class="col6">${xs.map(x => exRow(x)).join('')}</div>`;
+  else for (const f of FAMILIES) for (const gg of f.groups) {
+    const here = xs.filter(x => GROUP_OF[x.m[0]] === gg);
+    if (here.length) list += `<section class="col6" style="padding-top:8px"><h2 class="sect">${esc(gName(gg))} · ${here.length}</h2>${here.map(x => exRow(x)).join('')}</section>`;
+  }
+  return `<div class="ohdr"><button class="iconbtn" data-act="closeov" aria-label="${esc(t('back'))}">${I.back}</button><h1>${esc(g ? t('exFor', { g: gName(g) }) : t('exercises'))}</h1><span></span></div>
+    <div class="scroll"><div class="chips" role="group">${chips}</div><div class="olist exlist">${list}</div></div>`;
 }
 
 /* ---------- fiche d'un groupe (panneau du bas) ---------- */
 function openSheet(g) { ui.sheet = { g }; document.body.classList.add('locked'); renderSheet(); }
 function closeSheet() { ui.sheet = null; $('#sheet').innerHTML = ''; if (!ui.overlay) document.body.classList.remove('locked'); }
 function renderSheet() {
+  if (ui.sheet.ex) return renderExSheet();
   const g = ui.sheet.g, p = pal(), states = allStates(), last = {};
   for (const s of state.sessions) { const ts = new Date(s.datetime).getTime(); for (const m of s.muscles) if (!last[m] || ts > last[m]) last[m] = ts; }
   const ms = GROUPS[g].muscles;
@@ -340,10 +417,18 @@ function renderSheet() {
         </div>
         <div class="figbox">${fig}</div>
         <ul class="mlist">${rows}</ul>
+        ${groupExercises(g)}
       </div>
       <div class="foot">${foot}</div>
     </section></div>`;
   const nx = $('#sheet .scroll'); if (nx) nx.scrollTop = y;
+}
+
+function groupExercises(g) {
+  const xs = exercisesFor(g), MAX = 10;
+  if (!xs.length) return '';
+  return `<h3 class="sect" style="padding:18px 2px 10px">${esc(t('exGroupSec'))} · ${xs.length}</h3><div class="exchips">${xs.slice(0, MAX).map(x => `<button class="exchip" data-act="ex" data-id="${x.id}" data-from="${g}">${esc(exName(x))}</button>`).join('')}</div>
+    ${xs.length > MAX ? `<button class="linkbtn" data-act="exlist" data-g="${g}">${esc(t('exSeeAll', { n: xs.length }))}${I.chev}</button>` : ''}`;
 }
 
 /* ---------- réglages ---------- */
@@ -628,7 +713,7 @@ function renderOverlay() {
   const o = $('#overlay');
   if (!ui.overlay) { o.innerHTML = ''; if (!ui.sheet) document.body.classList.remove('locked'); return; }
   const prev = o.querySelector('.scroll'), y = prev ? prev.scrollTop : 0;
-  const html = ui.overlay === 'workout' ? workoutHTML() : ui.overlay === 'tracked' ? trackedHTML() : ui.overlay === 'onb' ? onbHTML() : ui.overlay === 'install' ? installHTML() : articleHTML(ui.article);
+  const html = ui.overlay === 'workout' ? workoutHTML() : ui.overlay === 'exlist' ? exListHTML() : ui.overlay === 'tracked' ? trackedHTML() : ui.overlay === 'onb' ? onbHTML() : ui.overlay === 'install' ? installHTML() : articleHTML(ui.article);
   o.innerHTML = `<div class="overlay" role="dialog" aria-modal="true">${html}</div>`;
   const nx = o.querySelector('.scroll'); if (nx) nx.scrollTop = y;
 }
@@ -783,6 +868,9 @@ document.addEventListener('click', e => {
     case 'finishworkout': commitWorkout(true); break;
     case 'edit': { const s = state.sessions.find(x => x.id === d.id); if (s) openWorkout(s); break; }
     case 'sheet': openSheet(d.g); break;
+    case 'ex': openEx(d.id, d.from); break;
+    case 'exlist': ui.exGroup = d.g || null; ui.exEq = 'all'; closeSheet(); ui.overlay = 'exlist'; document.body.classList.add('locked'); renderOverlay(); { const sc = $('#overlay .scroll'); if (sc) sc.scrollTop = 0; } break;
+    case 'exeq': ui.exEq = d.v; renderOverlay(); break;
     case 'closesheet': closeSheet(); break;
     case 'syncnow': syncNow(); break;
     case 'login': if (d.p) login(d.p); else showGate(''); break;

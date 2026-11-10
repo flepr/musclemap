@@ -23,7 +23,7 @@ const S = {
     gateFailed: 'Connexion échouée, réessaie.',
     gateLoggedOut: 'Déconnecté. Reconnecte-toi pour accéder à l’application.',
 
-    tabMap: 'Carte', tabHistory: 'Historique', tabWorkout: 'Séance', tabMuscles: 'Muscles', tabSettings: 'Réglages',
+    tabMap: 'Carte', tabHistory: 'Historique', tabWorkout: 'Séance', tabMuscles: 'Explorer', tabSettings: 'Réglages',
     navMain: 'Navigation principale',
 
     syncOk: 'Synchro {t}', syncing: 'Synchro…', syncOffline: 'Hors ligne', syncError: '{p} injoignable', syncLocal: 'Sur cet appareil',
@@ -73,8 +73,12 @@ const S = {
     noSessions: 'Aucune séance enregistrée pour le moment.',
     weekdaysShort: ['LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM', 'DIM'],
 
-    muscles: 'Muscles', musclesMeta: '13 groupes musculaires · 34 muscles', search: 'Rechercher : deltoïde, ischios, lats…', searchLabel: 'Rechercher un muscle',
-    basics: 'LES BASES', noResult: 'Aucun muscle ne correspond.',
+    muscles: 'Explorer', musclesMeta: '34 muscles · {e} exercices', search: 'Muscle ou exercice : dips, ischios…', searchLabel: 'Rechercher un muscle ou un exercice',
+    basics: 'LES BASES', noResult: 'Aucun muscle ni exercice ne correspond.',
+    exercises: 'Exercices', resMuscles: 'Muscles', exBrowse: 'Tous les exercices', exBrowseSub: 'Avec et sans matériel · {n} exercices',
+    exPrimary: 'Muscles principaux', exPrimaryNote: 'Seuls les muscles qui font l’essentiel de l’effort sont indiqués, pas ceux qui aident ou stabilisent.',
+    exLog: 'Noter ces muscles', exSeeAll: 'Voir les {n} exercices', exFor: 'Exercices · {g}', exAllEq: 'Tout le matériel',
+    exGroupSec: 'Exercices', exNone: 'Aucun exercice avec ce matériel.',
     role: 'Rôle', exercises: 'Exercices', track: 'Suivre ce muscle',
     targetThese: 'Travailler {x}', targetThem: 'les muscles en retard', recordGroup: 'Ajouter à une séance',
     lastWorked: 'Dernière fois', hoursAgo: 'il y a {n} h', recLeft: 'encore {n} h',
@@ -170,7 +174,7 @@ const S = {
     gateFailed: 'Sign-in failed, please try again.',
     gateLoggedOut: 'Signed out. Sign in again to use the app.',
 
-    tabMap: 'Map', tabHistory: 'History', tabWorkout: 'Workout', tabMuscles: 'Muscles', tabSettings: 'Settings',
+    tabMap: 'Map', tabHistory: 'History', tabWorkout: 'Workout', tabMuscles: 'Explore', tabSettings: 'Settings',
     navMain: 'Main navigation',
 
     syncOk: 'Synced {t}', syncing: 'Syncing…', syncOffline: 'Offline', syncError: '{p} unreachable', syncLocal: 'On this device',
@@ -220,8 +224,12 @@ const S = {
     noSessions: 'No workouts logged yet.',
     weekdaysShort: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
 
-    muscles: 'Muscles', musclesMeta: '13 muscle groups · 34 muscles', search: 'Search: deltoid, hamstrings, lats…', searchLabel: 'Search a muscle',
-    basics: 'THE BASICS', noResult: 'No muscle matches.',
+    muscles: 'Explore', musclesMeta: '34 muscles · {e} exercises', search: 'Muscle or exercise: dips, hamstrings…', searchLabel: 'Search a muscle or an exercise',
+    basics: 'THE BASICS', noResult: 'No muscle or exercise matches.',
+    exercises: 'Exercises', resMuscles: 'Muscles', exBrowse: 'All exercises', exBrowseSub: 'With and without equipment · {n} exercises',
+    exPrimary: 'Main muscles', exPrimaryNote: 'Only the muscles doing most of the work are listed, not the ones that assist or stabilise.',
+    exLog: 'Log these muscles', exSeeAll: 'See all {n} exercises', exFor: 'Exercises · {g}', exAllEq: 'All equipment',
+    exGroupSec: 'Exercises', exNone: 'No exercise with this equipment.',
     role: 'Role', exercises: 'Exercises', track: 'Track this muscle',
     targetThese: 'Target {x}', targetThem: 'the lagging muscles', recordGroup: 'Add to a workout',
     lastWorked: 'Last time', hoursAgo: '{n} h ago', recLeft: '{n} h left',

@@ -3,10 +3,10 @@
    Stratégie « réseau d'abord » : en ligne, on sert toujours la dernière version
    publiée (et on met le cache à jour) ; hors ligne, on sert la copie en cache.
    Les appels Microsoft et Google (connexion, OneDrive, Google Drive) et les statistiques (Umami) ne passent jamais par le cache. */
-const CACHE = 'musclemap-v22';
+const CACHE = 'musclemap-v23';
 const ASSETS = [
   './', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png',
-  './css/app.css', './js/app.js', './js/data.js', './js/i18n.js', './js/store.js', './js/logic.js', './js/body.js', './js/sync.js', './js/install.js', './js/backup.js', './js/stats.js',
+  './css/app.css', './js/app.js', './js/data.js', './js/i18n.js', './js/store.js', './js/logic.js', './js/body.js', './js/sync.js', './js/install.js', './js/backup.js', './js/stats.js', './js/exercises.js',
   './fonts/barlow-latin-400-normal.woff2', './fonts/barlow-latin-400-italic.woff2', './fonts/barlow-latin-500-normal.woff2',
   './fonts/barlow-latin-600-normal.woff2', './fonts/barlow-latin-700-normal.woff2',
   './fonts/barlow-condensed-latin-600-normal.woff2', './fonts/barlow-condensed-latin-700-normal.woff2',

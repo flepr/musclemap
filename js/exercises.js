@@ -1,0 +1,246 @@
+/* MuscleMap — exercices de salle (avec et sans matériel) et leurs muscles PRINCIPAUX.
+   Une aide pour savoir quels muscles noter : on n'indique que les muscles qui font l'essentiel
+   de l'effort (pas ceux qui aident ou stabilisent). Identifiants de muscles : voir data.js.
+   eq : bw poids du corps · db haltères · bb barre · mc machine · cb poulie · sm barre guidée
+        kb kettlebell · band élastique · sus suspension (anneaux, TRX)
+   a  : autres noms (français, anglais, abréviations) pour la recherche
+   n  : précision utile { fr, en } (variante qui change les muscles travaillés) */
+
+const TRI = ['tri_long', 'tri_lat', 'tri_med'], PRESS_TRI = ['tri_lat', 'tri_med'];
+const BIC = ['bic_long', 'bic_court'], ISCH = ['ischio_bf', 'ischio_st'], VASTES = ['quad_ext', 'quad_int'];
+const E = (id, eq, fr, en, m, a = '', n = null) => ({ id, eq: eq.split(' '), fr, en, m: [...new Set(m.flat())], a, n });
+
+export const EQUIP = {
+  bw:   { fr: 'Poids du corps', en: 'Bodyweight' },
+  db:   { fr: 'Haltères',       en: 'Dumbbells' },
+  bb:   { fr: 'Barre',          en: 'Barbell' },
+  mc:   { fr: 'Machine',        en: 'Machine' },
+  cb:   { fr: 'Poulie',         en: 'Cable' },
+  sm:   { fr: 'Barre guidée',   en: 'Smith machine' },
+  kb:   { fr: 'Kettlebell',     en: 'Kettlebell' },
+  band: { fr: 'Élastique',      en: 'Band' },
+  sus:  { fr: 'Suspension',     en: 'Suspension' },
+};
+
+export const EXERCISES = [
+  /* ---------- pectoraux ---------- */
+  E('dc', 'bb', 'Développé couché', 'Bench press', ['pec_mil', 'delt_ant', PRESS_TRI], 'DC, bench, développé couché barre, barbell bench press, flat bench'),
+  E('dc_db', 'db', 'Développé couché haltères', 'Dumbbell bench press', ['pec_mil', 'delt_ant', PRESS_TRI], 'DC haltères, DB bench, dumbbell press'),
+  E('dc_mc', 'mc', 'Développé à la machine (chest press)', 'Machine chest press', ['pec_mil', 'delt_ant', PRESS_TRI], 'presse pectorale, chest press, machine convergente, Hammer Strength'),
+  E('dc_sm', 'sm', 'Développé couché à la barre guidée', 'Smith machine bench press', ['pec_mil', 'delt_ant', PRESS_TRI], 'smith bench'),
+  E('di', 'bb', 'Développé incliné', 'Incline bench press', ['pec_haut', 'delt_ant', PRESS_TRI], 'DI, incline press, développé incliné barre', { fr: 'Banc à 30° environ : au-delà, l’avant des épaules prend le relais.', en: 'Bench at about 30°: steeper and the front delts take over.' }),
+  E('di_db', 'db', 'Développé incliné haltères', 'Incline dumbbell press', ['pec_haut', 'delt_ant', PRESS_TRI], 'DI haltères, incline DB press'),
+  E('di_mc', 'mc sm', 'Développé incliné à la machine', 'Incline machine press', ['pec_haut', 'delt_ant', PRESS_TRI], 'incline chest press, smith incline'),
+  E('dd', 'bb db', 'Développé décliné', 'Decline bench press', ['pec_bas', 'pec_mil', PRESS_TRI], 'decline press, développé décliné haltères'),
+  E('floor', 'bb db', 'Développé au sol', 'Floor press', ['pec_mil', PRESS_TRI], 'floor press'),
+  E('landmine', 'bb', 'Développé landmine', 'Landmine press', ['pec_haut', 'delt_ant', PRESS_TRI], 'landmine chest press'),
+  E('ecarte', 'db', 'Écarté couché', 'Dumbbell fly', ['pec_mil'], 'écartés, écarté haltères, flyes, chest fly'),
+  E('ecarte_inc', 'db', 'Écarté incliné', 'Incline dumbbell fly', ['pec_haut'], 'incline fly'),
+  E('pecdeck', 'mc', 'Pec deck (butterfly)', 'Pec deck', ['pec_mil'], 'butterfly, machine fly, pec fly, écarté machine'),
+  E('cb_cross', 'cb', 'Écarté à la poulie (vis-à-vis)', 'Cable crossover', ['pec_mil'], 'cable fly, vis-à-vis, crossover, écarté poulie'),
+  E('cb_hl', 'cb', 'Poulie haut-bas', 'High-to-low cable fly', ['pec_bas', 'pec_mil'], 'écarté poulie haute, high cable fly, crossover haut vers bas'),
+  E('cb_lh', 'cb', 'Poulie bas-haut', 'Low-to-high cable fly', ['pec_haut'], 'écarté poulie basse, low cable fly, crossover bas vers haut'),
+  E('pompes', 'bw', 'Pompes', 'Push-ups', ['pec_mil', 'delt_ant', PRESS_TRI], 'push up, pushups, press-up'),
+  E('pompes_inc', 'bw', 'Pompes mains surélevées', 'Incline push-ups', ['pec_bas', 'pec_mil', PRESS_TRI], 'incline push up, pompes inclinées', { fr: 'Mains en hauteur : plus facile, et l’angle vise le bas des pecs.', en: 'Hands raised: easier, and the angle favours the lower chest.' }),
+  E('pompes_dec', 'bw', 'Pompes pieds surélevés', 'Decline push-ups', ['pec_haut', 'delt_ant', PRESS_TRI], 'decline push up, pompes déclinées', { fr: 'Pieds en hauteur : plus dur, et l’angle vise le haut des pecs.', en: 'Feet raised: harder, and the angle favours the upper chest.' }),
+  E('pompes_larges', 'bw', 'Pompes prise large', 'Wide push-ups', ['pec_mil', 'delt_ant'], 'wide grip push up'),
+  E('pompes_diam', 'bw', 'Pompes diamant', 'Diamond push-ups', [TRI, 'pec_mil'], 'pompes serrées, close-grip push up, triangle push up'),
+  E('dips_pec', 'bw', 'Dips penché en avant', 'Chest dips', ['pec_bas', 'pec_mil', TRI, 'delt_ant'], 'dips pecs, dips, chest dip, barres parallèles', { fr: 'Buste penché et coudes écartés : les pecs font le gros du travail. Buste droit : voir « Dips buste droit ».', en: 'Leaning forward with elbows out: the chest does most of the work. Upright: see “Triceps dips”.' }),
+  E('dips_tri', 'bw', 'Dips buste droit', 'Triceps dips', [TRI, 'pec_bas'], 'dips triceps, dips droits, upright dips', { fr: 'Buste droit et coudes serrés : surtout les triceps.', en: 'Upright with elbows tucked: mostly triceps.' }),
+  E('dips_mc', 'mc', 'Dips assistés (machine)', 'Assisted dips', ['pec_bas', TRI, 'delt_ant'], 'assisted dip machine, dips machine'),
+  E('dips_banc', 'bw', 'Dips entre deux bancs', 'Bench dips', [TRI, 'delt_ant'], 'dips banc, bench dip, chair dips'),
+  E('pullover_db', 'db', 'Pull-over haltère', 'Dumbbell pullover', ['pec_mil', 'dorsal'], 'pullover, pull over'),
+  E('pompes_anneaux', 'sus', 'Pompes aux anneaux (ou TRX)', 'Ring push-ups', ['pec_mil', 'delt_ant', PRESS_TRI], 'TRX push up, suspension push up'),
+
+  /* ---------- épaules ---------- */
+  E('dm', 'bb', 'Développé militaire', 'Overhead press', ['delt_ant', 'delt_lat', PRESS_TRI], 'OHP, military press, développé debout, strict press, développé barre au-dessus de la tête'),
+  E('dm_db', 'db', 'Développé épaules haltères', 'Dumbbell shoulder press', ['delt_ant', 'delt_lat', PRESS_TRI], 'développé assis haltères, seated DB press, développé haltères'),
+  E('dm_mc', 'mc sm', 'Développé épaules à la machine', 'Machine shoulder press', ['delt_ant', 'delt_lat', PRESS_TRI], 'shoulder press machine, smith shoulder press'),
+  E('arnold', 'db', 'Développé Arnold', 'Arnold press', ['delt_ant', 'delt_lat', PRESS_TRI], 'arnold'),
+  E('dm_nuque', 'bb sm', 'Développé nuque', 'Behind-the-neck press', ['delt_ant', 'delt_lat', PRESS_TRI], 'behind the neck press, développé derrière la nuque'),
+  E('pushpress', 'bb', 'Push press', 'Push press', ['delt_ant', 'delt_lat', PRESS_TRI], 'développé poussé'),
+  E('pike', 'bw', 'Pompes piquées', 'Pike push-ups', ['delt_ant', PRESS_TRI], 'pike push up'),
+  E('hspu', 'bw', 'Pompes en équilibre', 'Handstand push-ups', ['delt_ant', 'delt_lat', PRESS_TRI], 'HSPU, pompes poirier, handstand push up'),
+  E('lat_raise', 'db', 'Élévations latérales', 'Lateral raises', ['delt_lat'], 'élévations latérales haltères, side raise, lateral raise, oiseau latéral'),
+  E('lat_raise_cb', 'cb', 'Élévations latérales à la poulie', 'Cable lateral raises', ['delt_lat'], 'cable lateral raise, élévation latérale poulie'),
+  E('lat_raise_mc', 'mc', 'Élévations latérales à la machine', 'Lateral raise machine', ['delt_lat'], 'machine lateral raise'),
+  E('lat_raise_lean', 'db', 'Élévation latérale penchée', 'Leaning lateral raise', ['delt_lat'], 'lean-away lateral raise'),
+  E('front_raise', 'db bb cb', 'Élévations frontales', 'Front raises', ['delt_ant'], 'front raise, élévation frontale, levées frontales'),
+  E('upright', 'bb cb db', 'Tirage menton', 'Upright row', ['delt_lat', 'trap_haut'], 'upright row, rowing menton'),
+  E('oiseau', 'db', 'Oiseau', 'Rear-delt fly', ['delt_post', 'trap_mil'], 'reverse fly, bent-over fly, élévations postérieures, rear delt raise'),
+  E('rev_pecdeck', 'mc', 'Reverse pec deck', 'Reverse pec deck', ['delt_post', 'trap_mil'], 'pec deck inversé, rear delt machine, oiseau machine'),
+  E('rear_cb', 'cb', 'Oiseau à la poulie', 'Cable rear-delt fly', ['delt_post'], 'cable reverse fly, croisé poulie arrière'),
+  E('facepull', 'cb band', 'Face pull', 'Face pull', ['delt_post', 'coiffe', 'trap_mil'], 'facepull, tirage visage'),
+  E('rot_ext', 'cb band db', 'Rotations externes', 'External rotations', ['coiffe'], 'rotation externe épaule, external rotation, coiffe des rotateurs, rotator cuff'),
+  E('rot_int', 'cb band', 'Rotations internes', 'Internal rotations', ['coiffe'], 'rotation interne épaule, internal rotation'),
+  E('y_raise', 'db bw', 'Élévations en Y', 'Y-raises', ['trap_bas', 'delt_lat'], 'Y raise, prone Y, élévation en Y allongé'),
+  E('battle', 'bw', 'Cordes ondulatoires', 'Battle ropes', ['delt_ant', 'delt_lat'], 'battle rope, cordes'),
+
+  /* ---------- trapèzes et milieu du dos ---------- */
+  E('shrug_bb', 'bb sm', 'Shrugs à la barre', 'Barbell shrugs', ['trap_haut'], 'haussements d’épaules, shrug, shrugs'),
+  E('shrug_db', 'db mc', 'Shrugs aux haltères', 'Dumbbell shrugs', ['trap_haut'], 'haussements d’épaules haltères, shrug machine'),
+  E('farmer', 'db kb', 'Marche du fermier', 'Farmer’s walk', ['flech', 'trap_haut'], 'farmer walk, farmers carry, promenade du fermier'),
+  E('row_bb', 'bb', 'Rowing barre', 'Barbell row', ['dorsal', 'trap_mil', 'delt_post'], 'rowing buste penché, bent-over row, rowing barre penché'),
+  E('pendlay', 'bb', 'Rowing Pendlay', 'Pendlay row', ['dorsal', 'trap_mil', 'delt_post'], 'pendlay'),
+  E('row_db', 'db', 'Rowing haltère à un bras', 'One-arm dumbbell row', ['dorsal', 'grand_rond', 'trap_mil'], 'rowing unilatéral, DB row, one arm row, Kroc row'),
+  E('row_cb', 'cb', 'Tirage horizontal à la poulie', 'Seated cable row', ['trap_mil', 'dorsal', 'delt_post'], 'rowing poulie basse, tirage poulie basse, seated row, low row', { fr: 'Prise large et coudes écartés : plutôt milieu du dos et arrière d’épaule ; prise serrée, coudes au corps : plutôt grand dorsal.', en: 'Wide grip with elbows out: more mid back and rear delts; close grip with elbows in: more lats.' }),
+  E('tbar', 'bb mc', 'Rowing T-bar', 'T-bar row', ['trap_mil', 'dorsal', 'delt_post'], 'T bar row, rowing T'),
+  E('row_mc', 'mc', 'Rowing à la machine', 'Machine row', ['trap_mil', 'dorsal', 'delt_post'], 'chest-supported machine row, rowing assis machine, Hammer row'),
+  E('seal', 'db bb', 'Rowing poitrine appuyée', 'Chest-supported row', ['trap_mil', 'delt_post', 'dorsal'], 'seal row, rowing banc incliné, chest supported row'),
+  E('inv_row', 'bw sus', 'Rowing inversé', 'Inverted row', ['trap_mil', 'dorsal', 'delt_post'], 'australian pull-up, tractions australiennes, TRX row, body row'),
+
+  /* ---------- dos : grand dorsal ---------- */
+  E('pullup', 'bw', 'Tractions', 'Pull-ups', ['dorsal', 'grand_rond', 'trap_bas'], 'tractions pronation, pull up, traction prise large'),
+  E('chinup', 'bw', 'Tractions supination', 'Chin-ups', ['dorsal', BIC, 'grand_rond'], 'chin up, tractions prise inversée, tractions supi'),
+  E('pullup_neutral', 'bw', 'Tractions prise neutre', 'Neutral-grip pull-ups', ['dorsal', 'grand_rond', 'brachial'], 'tractions prise marteau, neutral grip pull up, hammer grip'),
+  E('pullup_assist', 'mc band', 'Tractions assistées', 'Assisted pull-ups', ['dorsal', 'grand_rond', 'trap_bas'], 'assisted pull up machine, tractions élastique'),
+  E('pulldown', 'cb mc', 'Tirage vertical', 'Lat pulldown', ['dorsal', 'grand_rond', 'trap_bas'], 'tirage poitrine, tirage poulie haute, lat pull down, pulldown'),
+  E('pulldown_close', 'cb', 'Tirage vertical prise serrée', 'Close-grip lat pulldown', ['dorsal', 'grand_rond'], 'tirage triangle, V-bar pulldown'),
+  E('pulldown_supi', 'cb', 'Tirage vertical supination', 'Reverse-grip lat pulldown', ['dorsal', BIC], 'underhand pulldown, tirage prise inversée'),
+  E('straight_pd', 'cb', 'Pull-over à la poulie', 'Straight-arm pulldown', ['dorsal', 'grand_rond'], 'cable pullover, tirage bras tendus, straight arm pulldown'),
+  E('pullover_mc', 'mc', 'Pull-over à la machine', 'Pullover machine', ['dorsal', 'grand_rond'], 'machine pullover'),
+  E('muscleup', 'bw sus', 'Muscle-up', 'Muscle-up', ['dorsal', 'pec_bas', TRI], 'muscle up, traction-dips'),
+
+  /* ---------- dos : lombaires et chaîne arrière ---------- */
+  E('sdt', 'bb', 'Soulevé de terre', 'Deadlift', ['lombaires', 'fess_grand', ISCH], 'SDT, deadlift conventionnel, conventional deadlift'),
+  E('sdt_sumo', 'bb', 'Soulevé de terre sumo', 'Sumo deadlift', ['fess_grand', VASTES, 'adduc', 'lombaires'], 'sumo, SDT sumo'),
+  E('sdt_hex', 'bb', 'Soulevé de terre barre hexagonale', 'Trap bar deadlift', [VASTES, 'fess_grand', 'lombaires'], 'trap bar, hex bar deadlift, barre hexagonale'),
+  E('rdl', 'bb db', 'Soulevé de terre roumain', 'Romanian deadlift', [ISCH, 'fess_grand'], 'RDL, SDT roumain, roumain'),
+  E('sdt_jt', 'bb db', 'Soulevé de terre jambes tendues', 'Stiff-leg deadlift', [ISCH, 'lombaires'], 'SLDL, stiff legged deadlift, SDT jambes tendues'),
+  E('rdl_1', 'db kb', 'Soulevé de terre sur une jambe', 'Single-leg Romanian deadlift', [ISCH, 'fess_grand'], 'single leg RDL, SDT unilatéral'),
+  E('rackpull', 'bb', 'Rack pull', 'Rack pull', ['lombaires', 'trap_haut', 'fess_grand'], 'soulevé de terre partiel, block pull'),
+  E('goodmorning', 'bb', 'Good morning', 'Good morning', [ISCH, 'lombaires'], 'good mornings, bonjour'),
+  E('backext', 'bw mc', 'Extensions lombaires', 'Back extensions', ['lombaires', 'fess_grand'], 'hyperextensions, banc à lombaires, back extension, chaise romaine'),
+  E('superman', 'bw', 'Superman', 'Superman', ['lombaires'], 'superman hold'),
+  E('revhyper', 'mc bw', 'Reverse hyper', 'Reverse hyperextension', ['fess_grand', 'lombaires'], 'reverse hyper, hyperextension inversée'),
+  E('swing', 'kb', 'Kettlebell swing', 'Kettlebell swing', ['fess_grand', ISCH], 'swing, balancier kettlebell'),
+
+  /* ---------- biceps ---------- */
+  E('curl_bb', 'bb', 'Curl barre', 'Barbell curl', [BIC, 'brachial'], 'curl biceps barre, barbell curl, curl 21, 21s'),
+  E('curl_ez', 'bb', 'Curl barre EZ', 'EZ-bar curl', [BIC, 'brachial'], 'EZ curl, curl barre coudée'),
+  E('curl_db', 'db', 'Curl haltères', 'Dumbbell curl', [BIC, 'brachial'], 'curl alterné, alternate curl, DB curl, curl biceps'),
+  E('hammer', 'db cb', 'Curl marteau', 'Hammer curl', ['brachial', 'brachiorad'], 'hammer, curl prise neutre, rope hammer curl'),
+  E('curl_inc', 'db', 'Curl incliné', 'Incline dumbbell curl', ['bic_long'], 'incline curl, curl assis incliné'),
+  E('preacher', 'bb db mc', 'Curl pupitre', 'Preacher curl', ['bic_court', 'brachial'], 'Larry Scott, curl Larry Scott, preacher, pupitre'),
+  E('concentration', 'db', 'Curl concentré', 'Concentration curl', [BIC], 'concentration curl'),
+  E('spider', 'db bb', 'Spider curl', 'Spider curl', [BIC], 'curl araignée, spider'),
+  E('curl_cb', 'cb', 'Curl à la poulie', 'Cable curl', [BIC], 'cable curl, curl poulie basse'),
+  E('bayesian', 'cb', 'Curl Bayesian', 'Bayesian cable curl', ['bic_long'], 'bayesian curl, curl poulie derrière le corps'),
+  E('dragcurl', 'bb', 'Drag curl', 'Drag curl', ['bic_long'], 'curl traîné'),
+  E('curl_mc', 'mc', 'Curl à la machine', 'Machine biceps curl', [BIC, 'brachial'], 'machine curl'),
+  E('rev_curl', 'bb cb', 'Curl inversé', 'Reverse curl', ['brachiorad', 'brachial', 'ext'], 'reverse curl, curl prise pronation'),
+  E('zottman', 'db', 'Curl Zottman', 'Zottman curl', [BIC, 'brachiorad', 'brachial'], 'zottman'),
+
+  /* ---------- triceps ---------- */
+  E('skull', 'bb db', 'Barre au front', 'Skull crushers', [TRI], 'skull crusher, lying triceps extension, french press, extension couché'),
+  E('oh_db', 'db', 'Extension au-dessus de la tête', 'Overhead triceps extension', ['tri_long', 'tri_med'], 'extension nuque haltère, overhead extension, extension triceps assis'),
+  E('oh_cb', 'cb', 'Extension nuque à la poulie', 'Overhead cable extension', ['tri_long', 'tri_med'], 'cable overhead extension, extension corde derrière la tête'),
+  E('pushdown', 'cb', 'Extension à la poulie haute', 'Triceps pushdown', ['tri_lat', 'tri_med'], 'pushdown, extension triceps poulie, corde, rope pushdown, poussée poulie, triceps poulie'),
+  E('pushdown_rev', 'cb', 'Extension poulie prise inversée', 'Reverse-grip pushdown', ['tri_med', 'tri_lat'], 'reverse grip pushdown, supination pushdown'),
+  E('kickback', 'db cb', 'Kickback', 'Triceps kickback', ['tri_lat', 'tri_med'], 'kick back, extension buste penché'),
+  E('cgbp', 'bb sm', 'Développé couché prise serrée', 'Close-grip bench press', [PRESS_TRI, 'pec_mil', 'delt_ant'], 'DC prise serrée, close grip bench, CGBP'),
+  E('jm', 'bb sm', 'JM press', 'JM press', ['tri_lat', 'tri_med'], 'JM'),
+  E('tate', 'db', 'Tate press', 'Tate press', ['tri_med', 'tri_lat'], 'tate'),
+  E('tri_mc', 'mc', 'Extension triceps à la machine', 'Triceps extension machine', [TRI], 'machine triceps, triceps dip machine'),
+
+  /* ---------- avant-bras ---------- */
+  E('wristcurl', 'bb db', 'Curl poignets', 'Wrist curl', ['flech'], 'flexion poignet, wrist curls'),
+  E('rev_wristcurl', 'bb db', 'Curl poignets inversé', 'Reverse wrist curl', ['ext'], 'extension poignet, reverse wrist curls'),
+  E('hang', 'bw', 'Suspension à la barre', 'Dead hang', ['flech'], 'dead hang, suspension, grip'),
+  E('roller', 'bw', 'Rouleau à poignets', 'Wrist roller', ['flech', 'ext'], 'wrist roller'),
+  E('pinch', 'bw', 'Pince de disques', 'Plate pinch', ['flech'], 'plate pinch, pinch grip'),
+  E('gripper', 'bw', 'Pince à main', 'Hand gripper', ['flech'], 'hand grip, gripper, handgrip'),
+
+  /* ---------- abdominaux ---------- */
+  E('crunch', 'bw', 'Crunch', 'Crunch', ['abdos'], 'crunchs, abdos, enroulement'),
+  E('crunch_cb', 'cb', 'Crunch à la poulie', 'Cable crunch', ['abdos'], 'cable crunch, crunch à genoux poulie, kneeling crunch'),
+  E('crunch_mc', 'mc', 'Machine à abdos', 'Ab crunch machine', ['abdos'], 'ab machine, crunch machine'),
+  E('situp', 'bw', 'Sit-up', 'Sit-up', ['abdos'], 'redressement assis, sit up'),
+  E('revcrunch', 'bw', 'Relevé de bassin', 'Reverse crunch', ['abdos'], 'reverse crunch, crunch inversé'),
+  E('hlr', 'bw', 'Relevé de jambes suspendu', 'Hanging leg raise', ['abdos'], 'hanging leg raise, relevé de jambes à la barre'),
+  E('hkr', 'bw mc', 'Relevé de genoux', 'Knee raise', ['abdos'], 'hanging knee raise, chaise romaine, captain’s chair'),
+  E('llr', 'bw', 'Relevé de jambes au sol', 'Lying leg raise', ['abdos'], 'leg raise, relevé de jambes allongé'),
+  E('vup', 'bw', 'V-up', 'V-up', ['abdos'], 'portefeuille, V-ups, relevé en V'),
+  E('abwheel', 'bw', 'Roue abdominale', 'Ab wheel rollout', ['abdos'], 'ab wheel, roulette abdos, rollout'),
+  E('plank', 'bw', 'Planche (gainage)', 'Plank', ['abdos', 'obliques'], 'gainage, planche, plank, front plank'),
+  E('sideplank', 'bw', 'Planche latérale', 'Side plank', ['obliques'], 'gainage latéral, side plank'),
+  E('deadbug', 'bw', 'Dead bug', 'Dead bug', ['abdos'], 'insecte mort, deadbug'),
+  E('hollow', 'bw', 'Hollow hold', 'Hollow body hold', ['abdos'], 'hollow, position creuse'),
+  E('climber', 'bw', 'Mountain climbers', 'Mountain climbers', ['abdos'], 'grimpeur, mountain climber'),
+  E('dragonflag', 'bw', 'Dragon flag', 'Dragon flag', ['abdos'], 'dragon flag'),
+  E('lsit', 'bw', 'L-sit', 'L-sit', ['abdos'], 'L sit, équerre'),
+  E('bicycle', 'bw', 'Crunch bicyclette', 'Bicycle crunch', ['abdos', 'obliques'], 'bicycle crunch, vélo'),
+  E('twist', 'bw db', 'Russian twist', 'Russian twist', ['obliques'], 'rotations assis, russian twists'),
+  E('obl_crunch', 'bw', 'Crunch oblique', 'Oblique crunch', ['obliques'], 'crunch latéral, side crunch'),
+  E('woodchop', 'cb band', 'Bûcheron à la poulie', 'Cable woodchopper', ['obliques'], 'woodchop, woodchopper, bûcheron'),
+  E('pallof', 'cb band', 'Pallof press', 'Pallof press', ['obliques'], 'pallof, anti-rotation'),
+  E('sidebend', 'db', 'Inclinaisons latérales', 'Dumbbell side bend', ['obliques'], 'flexion latérale, side bend'),
+
+  /* ---------- fessiers ---------- */
+  E('hipthrust', 'bb mc', 'Hip thrust', 'Hip thrust', ['fess_grand'], 'hip thrust barre, poussée de hanche'),
+  E('bridge', 'bw bb', 'Pont fessier', 'Glute bridge', ['fess_grand'], 'glute bridge, pont, relevé de bassin au sol'),
+  E('kick_cb', 'cb mc', 'Kickback fessier à la poulie', 'Cable glute kickback', ['fess_grand'], 'glute kickback, extension de hanche poulie, ruade poulie'),
+  E('donkey', 'bw band', 'Ruade (kickback au sol)', 'Donkey kick', ['fess_grand'], 'donkey kicks, ruades'),
+  E('pullthrough', 'cb', 'Pull-through à la poulie', 'Cable pull-through', ['fess_grand', ISCH], 'pull through'),
+  E('abduct_mc', 'mc', 'Machine à abducteurs', 'Hip abduction machine', ['fess_moy'], 'abducteurs machine, abduction machine, hip abductor'),
+  E('abduct_cb', 'cb', 'Abduction de hanche à la poulie', 'Cable hip abduction', ['fess_moy'], 'abduction poulie, cable abduction'),
+  E('bandwalk', 'band', 'Marche latérale avec élastique', 'Banded lateral walk', ['fess_moy'], 'monster walk, marche du crabe, lateral band walk'),
+  E('sidelying', 'bw', 'Abduction allongé sur le côté', 'Side-lying leg raise', ['fess_moy'], 'side lying abduction, relevé de jambe latéral'),
+  E('clamshell', 'bw band', 'Clamshell', 'Clamshell', ['fess_moy'], 'coquillage, clam'),
+  E('hydrant', 'bw band', 'Fire hydrant', 'Fire hydrant', ['fess_moy'], 'borne d’incendie, hydrant'),
+
+  /* ---------- quadriceps ---------- */
+  E('squat', 'bb', 'Squat', 'Back squat', [VASTES, 'fess_grand', 'adduc'], 'squat barre, back squat, squat arrière'),
+  E('frontsquat', 'bb', 'Squat avant', 'Front squat', [VASTES, 'fess_grand'], 'front squat, squat clavicules'),
+  E('goblet', 'db kb', 'Goblet squat', 'Goblet squat', [VASTES, 'fess_grand'], 'squat gobelet, goblet'),
+  E('squat_sm', 'sm', 'Squat à la barre guidée', 'Smith machine squat', [VASTES, 'fess_grand'], 'smith squat'),
+  E('squat_bw', 'bw', 'Squat au poids du corps', 'Bodyweight squat', [VASTES, 'fess_grand'], 'air squat, squat sans charge'),
+  E('jumpsquat', 'bw', 'Squat sauté', 'Jump squat', [VASTES, 'fess_grand'], 'jump squat, squat jump'),
+  E('hack', 'mc', 'Hack squat', 'Hack squat', [VASTES], 'hack squat machine'),
+  E('pendulum', 'mc', 'Squat pendulaire', 'Pendulum squat', [VASTES], 'pendulum squat, pendule'),
+  E('beltsquat', 'mc', 'Belt squat', 'Belt squat', [VASTES, 'fess_grand'], 'squat à la ceinture'),
+  E('legpress', 'mc', 'Presse à cuisses', 'Leg press', [VASTES, 'fess_grand'], 'presse, leg press, presse inclinée'),
+  E('legext', 'mc', 'Leg extension', 'Leg extension', ['quad_droit', VASTES], 'extension des jambes, leg extension, quadriceps machine'),
+  E('sissy', 'bw mc', 'Sissy squat', 'Sissy squat', ['quad_droit', VASTES], 'sissy'),
+  E('lunge', 'bw db bb', 'Fentes', 'Lunges', [VASTES, 'fess_grand'], 'fente avant, forward lunge, lunge'),
+  E('walklunge', 'bw db', 'Fentes marchées', 'Walking lunges', [VASTES, 'fess_grand'], 'walking lunge, fentes en marchant'),
+  E('revlunge', 'bw db bb', 'Fentes arrière', 'Reverse lunges', ['fess_grand', VASTES], 'reverse lunge, fente arrière'),
+  E('bulgarian', 'db bb sm', 'Fentes bulgares', 'Bulgarian split squat', [VASTES, 'fess_grand'], 'squat bulgare, split squat, BSS'),
+  E('sidelunge', 'bw db', 'Fentes latérales', 'Lateral lunges', ['adduc', VASTES, 'fess_grand'], 'side lunge, fente latérale, cossack squat'),
+  E('stepup', 'bw db', 'Montée sur banc', 'Step-up', [VASTES, 'fess_grand'], 'step up, montées sur box'),
+  E('pistol', 'bw', 'Squat sur une jambe (pistol)', 'Pistol squat', [VASTES, 'fess_grand'], 'pistol, squat unijambiste, single leg squat'),
+  E('wallsit', 'bw', 'Chaise', 'Wall sit', [VASTES], 'la chaise, wall sit, isométrie cuisses'),
+  E('sumosquat', 'db kb bb', 'Squat sumo', 'Sumo squat', ['adduc', 'fess_grand', VASTES], 'plié squat, squat jambes écartées'),
+  E('boxjump', 'bw', 'Sauts sur box', 'Box jumps', [VASTES, 'fess_grand'], 'box jump, saut sur caisse'),
+  E('thruster', 'bb db kb', 'Thruster', 'Thruster', [VASTES, 'fess_grand', 'delt_ant'], 'thrusters, squat développé'),
+
+  /* ---------- ischio-jambiers ---------- */
+  E('legcurl_ly', 'mc', 'Leg curl allongé', 'Lying leg curl', [ISCH], 'leg curl couché, ischios machine, lying hamstring curl'),
+  E('legcurl_st', 'mc', 'Leg curl assis', 'Seated leg curl', [ISCH], 'seated hamstring curl'),
+  E('legcurl_up', 'mc cb', 'Leg curl debout', 'Standing leg curl', [ISCH], 'leg curl unilatéral, standing hamstring curl'),
+  E('nordic', 'bw', 'Nordic curl', 'Nordic hamstring curl', [ISCH], 'nordic, nordiques, flexion nordique'),
+  E('ghr', 'mc bw', 'Glute-ham raise', 'Glute-ham raise', [ISCH], 'GHR, glute ham'),
+  E('ballcurl', 'bw', 'Leg curl sur ballon', 'Swiss ball leg curl', [ISCH], 'stability ball curl, curl ischios ballon, slider curl'),
+
+  /* ---------- adducteurs ---------- */
+  E('adduct_mc', 'mc', 'Machine à adducteurs', 'Hip adduction machine', ['adduc'], 'adducteurs machine, adduction machine, hip adductor'),
+  E('adduct_cb', 'cb', 'Adduction de hanche à la poulie', 'Cable hip adduction', ['adduc'], 'adduction poulie, cable adduction'),
+  E('copenhagen', 'bw', 'Gainage Copenhague', 'Copenhagen plank', ['adduc', 'obliques'], 'copenhagen, copenhague, planche adducteurs'),
+
+  /* ---------- mollets ---------- */
+  E('calf_stand', 'mc sm db', 'Mollets debout', 'Standing calf raise', ['gastro', 'soleaire'], 'extensions mollets, calf raise, élévations mollets'),
+  E('calf_seat', 'mc', 'Mollets assis', 'Seated calf raise', ['soleaire'], 'seated calf, mollets machine assis'),
+  E('calf_press', 'mc', 'Mollets à la presse', 'Leg-press calf raise', ['gastro', 'soleaire'], 'calf press, mollets presse'),
+  E('calf_single', 'bw db', 'Mollets sur une jambe', 'Single-leg calf raise', ['gastro', 'soleaire'], 'calf raise unilatéral, mollets marche'),
+  E('calf_donkey', 'mc bw', 'Donkey calf raise', 'Donkey calf raise', ['gastro'], 'mollets donkey, âne'),
+  E('jumprope', 'bw', 'Corde à sauter', 'Jump rope', ['gastro', 'soleaire'], 'jump rope, skipping'),
+
+  /* ---------- corps entier ---------- */
+  E('clean', 'bb', 'Épaulé', 'Power clean', ['fess_grand', 'quad_ext', 'trap_haut', 'ischio_bf'], 'power clean, clean, épaulé en puissance'),
+  E('snatch', 'bb kb db', 'Arraché', 'Snatch', ['fess_grand', 'quad_ext', 'trap_haut', 'delt_lat'], 'snatch, power snatch'),
+  E('burpee', 'bw', 'Burpees', 'Burpees', [VASTES, 'fess_grand', 'pec_mil'], 'burpee'),
+  E('rower', 'mc', 'Rameur', 'Rowing machine', [VASTES, 'fess_grand', 'dorsal', 'trap_mil'], 'rameur, ergomètre, erg, concept 2, aviron'),
+  E('sled', 'mc', 'Poussée de traîneau', 'Sled push', [VASTES, 'fess_grand', 'gastro'], 'sled, prowler, traîneau'),
+];
+
+export const EX_BY_ID = Object.fromEntries(EXERCISES.map(x => [x.id, x]));
