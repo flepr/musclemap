@@ -66,7 +66,7 @@ const S = {
     liveSaved: 'Validé : {x} · séance en cours', liveUpdated: 'Séance mise à jour', liveDone: 'Séance terminée',
     bubbleOff: 'décoché',
     newsEyebrow: 'Nouveau', newsTitle: 'Nouveautés de la version {v}', newsTry: 'Essayer la recherche', newsOk: 'OK, compris',
-    news1Title: 'Valide au fur et à mesure', news1Text: 'Note tes muscles après chaque exercice : tout reste dans la même séance, qui se termine seule 1 h après le dernier muscle validé.',
+    news1Title: 'Valide au fur et à mesure', news1Text: 'Logge tes muscles après chaque exercice : tout reste dans la même séance, qui se termine seule 1 h après le dernier muscle validé.',
     news2Title: 'Le nom du muscle touché', news2Text: 'Pendant la saisie, une bulle affiche le nom de ce que tu touches.',
     news3Title: 'Quels muscles pour quel exercice ?', news3Text: 'L’onglet Muscles devient Explorer : cherche « dips » ou « squat » parmi 189 exercices pour voir les muscles travaillés.',
 
@@ -81,7 +81,7 @@ const S = {
     basics: 'LES BASES', noResult: 'Aucun muscle ni exercice ne correspond.',
     exercises: 'Exercices', resMuscles: 'Muscles', exBrowse: 'Tous les exercices', exBrowseSub: 'Avec et sans matériel · {n} exercices',
     exPrimary: 'Muscles principaux', exPrimaryNote: 'Seuls les muscles qui font l’essentiel de l’effort sont indiqués, pas ceux qui aident ou stabilisent.',
-    exLog: 'Noter ces muscles', exSeeAll: 'Voir les {n} exercices', exFor: 'Exercices · {g}', exAllEq: 'Tout le matériel',
+    exLog: 'Logger ces muscles', exSeeAll: 'Voir les {n} exercices', exFor: 'Exercices · {g}', exAllEq: 'Tout le matériel',
     exGroupSec: 'Exercices', exNone: 'Aucun exercice avec ce matériel.',
     role: 'Rôle', exercises: 'Exercices', track: 'Suivre ce muscle',
     targetThese: 'Travailler {x}', targetThem: 'les muscles en retard', recordGroup: 'Ajouter à une séance',
@@ -113,7 +113,7 @@ const S = {
     trackGroup: 'Suivre tout le groupe musculaire {g}',
 
     onbWelcome: 'Bienvenue', onbWelcomeTitle: 'Ta carte musculaire',
-    onbWelcomeText: 'À chaque séance, note les muscles travaillés. MuscleMap te montre ensuite ceux qui récupèrent, ceux qui sont prêts et ceux à travailler en priorité.',
+    onbWelcomeText: 'À chaque séance, logge les muscles travaillés. MuscleMap te montre ensuite ceux qui récupèrent, ceux qui sont prêts et ceux à travailler en priorité.',
     onbTrackTitle: 'Quels muscles veux-tu suivre ?',
     onbTrackText: 'Tout est coché par défaut. Décoche ceux que tu ne travailles jamais : ils ne seront jamais « à travailler ». Tu pourras changer ça dans Réglages.',
     onbHowTitle: 'Comment lire la carte',

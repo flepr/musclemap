@@ -1,6 +1,6 @@
 # MuscleMap
 
-Application web (PWA) de suivi des séances de musculation : à chaque séance on note les muscles travaillés, et la carte du corps montre ceux qui récupèrent, ceux qui sont prêts et ceux à cibler en priorité.
+Application web (PWA) de suivi des séances de musculation : à chaque séance on logge les muscles travaillés, et la carte du corps montre ceux qui récupèrent, ceux qui sont prêts et ceux à cibler en priorité.
 
 En ligne : https://flepr.github.io/musclemap/
 
