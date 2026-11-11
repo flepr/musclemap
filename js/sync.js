@@ -1,5 +1,10 @@
-/* MuscleMap — synchro (OneDrive ou Google Drive) et verrou de connexion.
-   100 % côté navigateur, sans serveur : les séances sont dans un fichier rangé
+/* MuscleMap — synchro et verrou de connexion.
+
+   • Compte MuscleMap (Supabase) — dès que SB.url et SB.key sont renseignés : connexion Google ou
+     Microsoft via Supabase Auth, séances dans la table user_data (voir plus bas). Les appareils encore
+     connectés à OneDrive / Google Drive basculent à l'ouverture (une reconnexion, séances reprises).
+
+   Ancien mode (SB vide) : 100 % côté navigateur, sans serveur, les séances sont dans un fichier rangé
    dans l'espace de la personne, que MuscleMap ne voit jamais.
 
    • OneDrive (Microsoft Graph) — OAuth2 + PKCE. Dossier /Apps/MuscleMap.
@@ -236,9 +241,185 @@ const google = {
   },
 };
 
+/* =================== Compte MuscleMap (Supabase) ===================
+   Connexion Google ou Microsoft gérée par Supabase Auth (PKCE) ; les séances sont rangées
+   dans la table user_data (une ligne par compte, même contenu que l'ancien fichier),
+   lisible seulement par le compte connecté (règles RLS, supabase/migrations/).
+   La session Supabase se renouvelle seule : plus de « Reconnecter » toutes les heures.
+   Tant que SB.url est vide, rien ne change : l'app reste en mode OneDrive / Google Drive. */
+const SB = {
+  url: '',   // https://<projet>.supabase.co
+  key: '',   // clé « publishable » (sb_publishable_…), publique par nature : la sécurité repose sur les règles RLS
+};
+const SB_STORE = 'musclemap.sb';            // session Supabase (gérée par auth-js)
+const MM_INFO = 'musclemap.mm.v1';          // { method: google | azure, email } — affichage et reconnexion
+const MM_PENDING = 'musclemap.mm.pending';  // aller-retour de connexion en cours : { method, at }
+const MIG_KEY = 'musclemap.migrate';        // bascule depuis OneDrive / Google Drive : { from, email, read, at }
+const mmRedirect = () => location.origin + location.pathname.replace(/index\.html$/, '');
+const DRIVE_SCOPE = { google: GG.driveScope, azure: 'Files.ReadWrite.AppFolder' };
+
+let auth = null;
+async function getAuth() {
+  if (auth) return auth;
+  const { AuthClient } = await import('./vendor/supabase-auth.js');
+  auth = new AuthClient({
+    url: SB.url + '/auth/v1', headers: { apikey: SB.key }, storageKey: SB_STORE,
+    autoRefreshToken: true, persistSession: true, detectSessionInUrl: false, flowType: 'pkce',
+  });
+  return auth;
+}
+
+const mm = {
+  id: 'mm', name: 'MuscleMap',
+  enabled: () => !!(SB.url && SB.key),
+  info: lsJson(MM_INFO),
+  rev: 0,
+  saveInfo() { try { localStorage.setItem(MM_INFO, JSON.stringify(this.info)); } catch (e) {} },
+  get account() { return this.info.method === 'azure' ? 'Microsoft' : 'Google'; },
+  get icon() { return this.info.method === 'azure' ? 'microsoft' : 'google'; },
+  get statId() { return 'compte-' + this.icon; },
+  connected() { return !!lsGet(SB_STORE); },
+  known() { return !!this.info.method; },
+  email() { return this.info.email || ''; },
+  /* method : google | azure. opt.drive : demande aussi l'accès à l'ancien fichier (Google Drive / OneDrive),
+     le temps de le reprendre une dernière fois (bascule) ; opt.email : compte à proposer. */
+  async login(method, opt) {
+    opt = opt || {};
+    method = method === 'azure' ? 'azure' : 'google';
+    const a = await getAuth();
+    const scopes = ['email', 'profile'];
+    if (method === 'azure') scopes.unshift('openid');
+    if (opt.drive) scopes.push(DRIVE_SCOPE[method]);
+    const queryParams = {};
+    if (method === 'google') queryParams.prompt = 'select_account';
+    const hint = opt.email || (this.info.method === method ? this.info.email : '');
+    if (hint) queryParams.login_hint = hint;
+    lsSet(MM_PENDING, JSON.stringify({ method, at: Date.now() }));
+    const { error } = await a.signInWithOAuth({ provider: method, options: { redirectTo: mmRedirect(), scopes: scopes.join(' '), queryParams } });
+    if (error) { lsSet(MM_PENDING, null); throw error; }
+  },
+  /* Retour de Supabase : ?code=… (ou ?error=… / #error=…), seulement si un aller-retour a été lancé d'ici */
+  isReturn(u) {
+    if (!lsGet(MM_PENDING)) return false;
+    return u.searchParams.has('code') || u.searchParams.has('error') || /(^#|&)error=/.test(u.hash);
+  },
+  async handleReturn(u) {
+    let pend = {}; try { pend = JSON.parse(lsGet(MM_PENDING)) || {}; } catch (e) {}
+    lsSet(MM_PENDING, null);
+    try { history.replaceState({}, '', mmRedirect()); } catch (e) {}
+    const h = new URLSearchParams(u.hash.slice(1));
+    const err = u.searchParams.get('error') || h.get('error');
+    if (err) {
+      const d = (u.searchParams.get('error_description') || h.get('error_description') || '').toLowerCase();
+      return err === 'access_denied' && !/server|exchange|email/.test(d) ? 'cancelled' : 'failed';
+    }
+    try {
+      const a = await getAuth();
+      const { data, error } = await a.exchangeCodeForSession(u.searchParams.get('code'));
+      if (error || !data || !data.session) throw error || new Error('no session');
+      const s = data.session;
+      this.info = { method: pend.method || (s.user.app_metadata && s.user.app_metadata.provider) || 'google', email: s.user.email || '' };
+      this.saveInfo();
+      this.rev = 0;
+      // Bascule : on reprend une dernière fois l'ancien fichier, avec l'accès donné pendant la connexion
+      const mig = lsJson(MIG_KEY);
+      if (mig.from && s.provider_token) {
+        try {
+          const old = await readLegacy(mig.from, s.provider_token);
+          if (old) { mergeInto(old); saveSilently(); }
+        } catch (e) { /* pas grave : les séances de cet appareil sont de toute façon recopiées */ }
+      }
+      return null;
+    } catch (e) { return 'failed'; }
+  },
+  /* Jeton valide (renouvelé par auth-js) ; null si la session n'existe plus ; erreur si Supabase est injoignable. */
+  async token() {
+    const a = await getAuth();
+    // Sans réseau, auth-js réessaie le renouvellement jusqu'à 30 s : au-delà de 4 s, on ouvre l'app (séances gardées ici)
+    const late = new Promise((_, no) => setTimeout(() => no(new Error('offline')), 4000));
+    const { data, error } = await Promise.race([a.getSession(), late]);
+    if (data && data.session) return data.session.access_token;
+    // Renouvellement impossible faute de réseau : auth-js garde la session, on réessaiera
+    if (lsGet(SB_STORE)) throw error || new Error('offline');
+    return null;
+  },
+  renewable: false,
+  async rest(path, opt, tok) {
+    const r = await fetch(SB.url + '/rest/v1/' + path, {
+      ...opt, cache: 'no-store',
+      headers: { apikey: SB.key, Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json', Accept: 'application/json', ...(opt && opt.headers) },
+    });
+    if (r.status === 401) throw authError('auth');
+    return r;
+  },
+  async read(tok) {
+    const r = await this.rest('user_data?select=data,rev', {}, tok);
+    if (!r.ok) throw new Error('read ' + r.status);
+    const rows = await r.json();
+    this.rev = rows.length ? +rows[0].rev || 0 : 0;
+    return rows.length ? [parseData(JSON.stringify(rows[0].data))] : [];
+  },
+  async write(tok) {
+    const r = await this.rest('rpc/save_data', { method: 'POST', body: JSON.stringify({ p_data: JSON.parse(serialize()), p_rev: this.rev }) }, tok);
+    if (!r.ok) throw new Error('write ' + r.status);
+    const rev = await r.json();
+    if (rev == null) throw Object.assign(new Error('conflict'), { conflict: true });   // un autre appareil a écrit entre-temps
+    this.rev = +rev;
+  },
+  logout() {
+    lsSet(SB_STORE, null);
+    if (auth) { try { auth.signOut({ scope: 'local' }).catch(() => {}); } catch (e) {} }
+    this.rev = 0;
+  },
+  /* Supprime le compte et ses séances en ligne (les séances restent sur cet appareil) */
+  async deleteAccount() {
+    const tok = await this.token();
+    if (!tok) throw authError('auth');
+    const r = await this.rest('rpc/delete_my_account', { method: 'POST', body: '{}' }, tok);
+    if (!r.ok) throw new Error('delete ' + r.status);
+    this.logout();
+    this.info = {}; this.saveInfo();
+  },
+};
+
+/* Lecture de l'ancien fichier de synchro avec le jeton Google / Microsoft obtenu à la bascule */
+async function readLegacy(from, tok) {
+  if (from === 'onedrive') {
+    const r = await fetch(GRAPH_CONTENT, { headers: { Authorization: 'Bearer ' + tok }, cache: 'no-store' });
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error('read ' + r.status);
+    return parseData(await r.text());
+  }
+  const H = { headers: { Authorization: 'Bearer ' + tok }, cache: 'no-store' };
+  const q = encodeURIComponent(`name='${FILE}' and trashed=false`);
+  const r = await fetch(`${DRIVE}?spaces=appDataFolder&q=${q}&fields=files(id)`, H);
+  if (!r.ok) throw new Error('list ' + r.status);
+  const out = { sessions: [], tombstones: [], settings: null };
+  for (const f of (await r.json()).files || []) {
+    const x = await fetch(`${DRIVE}/${f.id}?alt=media`, H);
+    if (!x.ok) continue;
+    const d = parseData(await x.text());
+    out.sessions.push(...d.sessions); out.tombstones.push(...d.tombstones);
+    if (d.settings && (!out.settings || d.settings.updatedAt > out.settings.updatedAt)) out.settings = d.settings;
+  }
+  return out;
+}
+
 /* =================== commun =================== */
-const PROVIDERS = { onedrive, google };
-export const providers = () => Object.values(PROVIDERS).filter(p => p.enabled());
+const PROVIDERS = { onedrive, google, mm };
+const LEGACY = { onedrive, google };
+/* Boutons de l'écran de connexion : Google et Microsoft (compte MuscleMap si Supabase est configuré,
+   sinon Google Drive et OneDrive). id d'interface : google | microsoft. */
+export const loginOptions = () => mm.enabled()
+  ? [{ id: 'google', account: 'Google', icon: 'google' }, { id: 'microsoft', account: 'Microsoft', icon: 'microsoft' }]
+  : Object.values(LEGACY).filter(p => p.enabled()).map(p => ({ id: p.id === 'onedrive' ? 'microsoft' : 'google', account: p.account, icon: p.id === 'onedrive' ? 'microsoft' : 'google' }));
+export const accountsEnabled = () => mm.enabled();
+export const deleteAccount = () => mm.deleteAccount().then(() => {
+  lsSet(LAST_KEY, null); lsSet(PROV_KEY, null); lsSet(LOCAL_KEY, '1'); keepData(); setStatus('local');
+});
+// icône et identifiant de statistiques des anciens fournisseurs
+onedrive.icon = 'microsoft'; onedrive.statId = 'onedrive';
+google.icon = 'google'; google.statId = 'google';
 
 /* Fournisseur courant : celui choisi, sinon OneDrive (comptes d'avant le choix) */
 function current() { return PROVIDERS[lsGet(PROV_KEY)] || onedrive; }
@@ -249,17 +430,30 @@ export const available = () => location.protocol !== 'file:';
 export const isLocal = () => !connected() && lsGet(LOCAL_KEY) === '1';
 function keepData() { try { navigator.storage && navigator.storage.persist && navigator.storage.persist().catch(() => {}); } catch (e) {} }
 export function useLocal() { lsSet(LOCAL_KEY, '1'); keepData(); setStatus('local'); hooks.unlock(); }
-/* Dernier fournisseur utilisé (pour le mettre en premier sur l'écran de connexion) */
-export const lastProvider = () => lsGet(LAST_KEY) || lsGet(PROV_KEY) || (onedrive.known() ? 'onedrive' : '');
+/* Dernier fournisseur utilisé, en id d'interface (google | microsoft), pour le mettre en premier sur l'écran de connexion */
+const uiId = id => id === 'onedrive' || id === 'microsoft' || id === 'azure' ? 'microsoft' : id === 'mm' ? (mm.info.method === 'azure' ? 'microsoft' : 'google') : id === 'google' ? 'google' : '';
+export const lastProvider = () => uiId(lsGet(LAST_KEY) || lsGet(PROV_KEY) || (onedrive.known() ? 'onedrive' : ''));
+/* Bascule en cours depuis OneDrive / Google Drive (écran « reconnecte-toi une fois ») */
+export const migrating = () => mm.enabled() && !!lsJson(MIG_KEY).from;
 
-let syncTimer = null, syncBusy = false, syncAgain = false;
+let syncTimer = null, syncBusy = false, syncAgain = false, conflicts = 0;
 let hooks = { gate() {}, unlock() {}, status() {}, data() {}, idle: () => true };
 export let lastStatus = { state: 'local', at: null };
 function setStatus(st) { lastStatus = { state: st, at: st === 'ok' ? new Date() : lastStatus.at }; hooks.status(lastStatus); }
 
+/* id : google | microsoft (boutons), ou l'id d'un fournisseur (reconnexion) */
 export function login(id, silent) {
   if (!available()) return;
-  const p = PROVIDERS[id] || current();
+  if (mm.enabled()) {
+    const method = uiId(id) === 'microsoft' ? 'azure' : 'google';
+    lsSet(LAST_KEY, uiId(id) || 'google');
+    // Bascule : avec le même fournisseur qu'avant, on demande aussi l'accès à l'ancien fichier pour le reprendre
+    const mig = lsJson(MIG_KEY);
+    const same = !!mig.from && (mig.from === 'onedrive') === (method === 'azure');
+    mm.login(method, { drive: same && !mig.read, email: same ? mig.email : '' }).catch(() => hooks.gate('failed'));
+    return;
+  }
+  const p = uiId(id) === 'microsoft' ? onedrive : uiId(id) === 'google' ? google : current();
   if (!p.enabled()) return;
   lsSet(PROV_KEY, p.id); lsSet(LAST_KEY, p.id);
   p.login(silent);
@@ -275,7 +469,7 @@ export function requestSync(delay) {
   clearTimeout(syncTimer);
   syncTimer = setTimeout(syncNow, delay || 0);
 }
-/* Récupère le fichier distant, fusionne, renvoie le résultat. Une seule synchro à la fois. */
+/* Récupère les données distantes, fusionne, renvoie le résultat. Une seule synchro à la fois. */
 export async function syncNow() {
   if (!connected()) return;
   if (syncBusy) { syncAgain = true; return; }
@@ -294,12 +488,17 @@ export async function syncNow() {
     saveSilently();
     hooks.data();
     await p.write(tok);
+    conflicts = 0;
     setStatus('ok');
   } catch (e) {
     if (e.auth) { setStatus('reauth'); return; }
-    setStatus(navigator.onLine === false ? 'offline' : 'error');
-    requestSync(60000);
-    return;
+    // Compte MuscleMap : un autre appareil a écrit entre la lecture et l'écriture → on relit et on refusionne
+    if (e.conflict && ++conflicts <= 5) { syncAgain = true; }
+    else {
+      setStatus(navigator.onLine === false ? 'offline' : 'error');
+      requestSync(60000);
+      return;
+    }
   } finally {
     syncBusy = false;
   }
@@ -315,11 +514,30 @@ async function onResume() {
 
 export function logout() {
   clearTimeout(syncTimer);
-  lsSet(LAST_KEY, current().id);
+  lsSet(LAST_KEY, uiId(current().id));
   current().logout();
   lsSet(PROV_KEY, null);
   setStatus('local');
   hooks.gate('loggedOut');
+}
+
+/* Bascule vers le compte MuscleMap d'un appareil encore connecté à OneDrive / Google Drive :
+   dernière lecture de l'ancien fichier si son jeton est encore valide, puis on oublie l'ancienne
+   connexion (sans révoquer l'accès : la connexion suivante pourra encore lire le fichier). */
+async function startMigration(old) {
+  let read = false;
+  if (old.connected() && navigator.onLine !== false) {
+    try {
+      const tok = await old.token();
+      if (tok) { (await old.read(tok)).forEach(r => mergeInto(r)); saveSilently(); read = true; }
+    } catch (e) {}
+  }
+  lsSet(MIG_KEY, JSON.stringify({ from: old.id, email: old.email(), read, at: Date.now() }));
+  lsSet(LAST_KEY, uiId(old.id));
+  old.s = {}; old.save();
+  if (old === onedrive) lsSet(MS_KNOWN, null);
+  if (old === google) lsSet(GG_TRY, null);
+  lsSet(PROV_KEY, null);
 }
 
 /* Démarrage : retour de connexion, session valide ? sinon écran de connexion.
@@ -331,14 +549,23 @@ export async function initSync(h) {
   if (!available()) { setStatus('local'); return true; }
 
   const u = new URL(location.href);
-  const back = google.isReturn(u) ? google : onedrive.isReturn(u) ? onedrive : null;
+  const back = mm.enabled() && mm.isReturn(u) ? mm : google.isReturn(u) ? google : onedrive.isReturn(u) ? onedrive : null;
   const returning = !!back;
   let err = '';
   if (back) {
     ssSet('mm_pending', null);
-    lsSet(PROV_KEY, back.id); lsSet(LAST_KEY, back.id);
     err = (await back.handleReturn(u)) || '';
+    if (back !== mm || !err) { lsSet(PROV_KEY, back.id); if (back !== mm) lsSet(LAST_KEY, back.id); }
     if (!err && back.connected()) lsSet(LOCAL_KEY, null);   // compte connecté : fin du mode sans compte
+    if (back === mm && !err) lsSet(MIG_KEY, null);          // bascule terminée
+  }
+
+  // Comptes MuscleMap en place : un appareil encore connecté à OneDrive / Google Drive bascule
+  // (une seule reconnexion ; ses séances, déjà sur l'appareil, sont recopiées dans le compte)
+  if (mm.enabled() && current() !== mm) {
+    const old = LEGACY[lsGet(PROV_KEY)] || (onedrive.known() ? onedrive : null);
+    if (old && (old.connected() || old.known())) await startMigration(old);
+    if (migrating()) { hooks.gate(err || 'migrate'); return false; }
   }
 
   const p = current();
@@ -351,10 +578,10 @@ export async function initSync(h) {
     if (status === 'none' && p.renewable && (navigator.onLine === false || !p.maySilent() || returning)) status = 'later';
   }
   if (status === 'none') {
-    if (!returning && p.known() && navigator.onLine !== false) { login(p.id, true); return false; }
+    if (!returning && p !== mm && p.known() && navigator.onLine !== false) { login(p.id, true); return false; }
     // Sans compte : l'app s'ouvre directement (sauf échec d'une tentative de connexion, montré sur l'écran d'accueil)
     if (lsGet(LOCAL_KEY) === '1' && !err) { keepData(); setStatus('local'); hooks.unlock(); return true; }
-    hooks.gate(err);
+    hooks.gate(err || (p === mm && p.known() ? 'expired' : ''));
     return false;
   }
 

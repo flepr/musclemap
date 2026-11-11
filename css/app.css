@@ -328,6 +328,7 @@ details.why .txt b { color: var(--ink); }
 #gate .err:empty { display: none; }
 @media (max-height: 760px) { #gate { gap: 12px; } #gate::before { margin-bottom: -12px; } #gate::after { margin-top: -12px; } }
 #gate .glocal { background: none; border: 0; color: var(--ink-2); font: 600 15px Barlow, sans-serif; text-decoration: underline; text-underline-offset: 4px; padding: 6px 12px; cursor: pointer; }
+#gate .gmig { margin: 0; max-width: 340px; font: 700 24px/1.1 'Barlow Condensed', sans-serif; text-transform: uppercase; letter-spacing: .03em; color: var(--ink); }
 #gate .gwarn { max-width: 340px; display: flex; flex-direction: column; gap: 12px; text-align: left; }
 #gate .gwarn h2 { margin: 8px 0 0; font: 700 26px/1.1 'Barlow Condensed', sans-serif; text-transform: uppercase; letter-spacing: .03em; color: var(--ink); }
 #gate .gwarn p { color: var(--ink-2); font-size: 16px; }

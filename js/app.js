@@ -5,7 +5,7 @@ import { t, L, setLang, lang, locale } from './i18n.js';
 import { state, load, save, upsertSession, deleteSession, restoreSession, updateSettings, uid, parseData, mergeInto, serialize } from './store.js';
 import { allStates, targets, priority, nextTarget, isTracked, trackedMuscles, sessionGroups, knownMuscles, openSession, closeStale, closedCopy, liveEnds, AUTO_CLOSE } from './logic.js';
 import { bodyPair, groupFigure, PALETTES, heatColor } from './body.js';
-import { initSync, syncNow, login, logout, reconnect, connected, available, lastStatus, provider, providers, lastProvider, isLocal, useLocal } from './sync.js';
+import { initSync, syncNow, login, logout, reconnect, connected, available, lastStatus, provider, loginOptions, lastProvider, isLocal, useLocal, migrating, accountsEnabled, deleteAccount } from './sync.js';
 import { backupCard, startBackupReminders, backupSeen } from './backup.js';
 import { trackOpen, trackSession, trackEvent, statsConfigured, statsOn, setStats, migrateStatsChoice } from './stats.js';
 import { isStandalone, guideHTML, installCard, startReminders, stopReminders, markSeen, promptInstall, onInstallChange, appUrl, tx, inAppBrowser, hostApp, intentUrl, isAndroid } from './install.js';
@@ -121,7 +121,7 @@ function syncPill() {
   else if (s.state === 'ok') { cls = 'ok'; txt = t('syncOk', { t: fmtTime(s.at) }); }
   else if (s.state === 'syncing') { icon = I.sync; txt = t('syncing'); }
   else if (s.state === 'offline') { icon = I.cloudOff; cls = 'warn'; txt = t('syncOffline'); }
-  else if (s.state === 'error') { icon = I.cloudOff; cls = 'warn'; txt = t('syncError', { p: provider().name }); }
+  else if (s.state === 'error') { icon = I.cloudOff; cls = 'warn'; txt = t('syncError', { p: provider().id === 'mm' ? 'MuscleMap' : provider().name }); }
   else if (s.state === 'reauth') { icon = I.sync; cls = 'warn'; txt = t('syncReauth'); }
   else { icon = I.cloudOff; cls = 'warn'; txt = t('syncLocal'); }
   const long = s.state === 'reauth' || s.state === 'ok' || s.state === 'offline' || s.state === 'error' ? syncLine() : txt;
@@ -137,10 +137,11 @@ function syncBtn() {
     ? `<button class="btn small acc" id="syncbtn" data-act="reconnect">${esc(t('reconnect'))}</button>`
     : `<button class="btn small" id="syncbtn" data-act="syncnow">${esc(t('syncNow'))}</button>`;
 }
+const pvName = () => provider().id === 'mm' ? t('mmAccount') : provider().name;
 function syncLine() {
   const s = lastStatus;
   if (!connected()) return t('notConnected');
-  const p = provider().name;
+  const p = provider().id === 'mm' ? 'MuscleMap' : provider().name;
   if (s.state === 'ok') return t('syncOkLong', { t: fmtTime(s.at), p });
   if (s.state === 'offline') return t('syncOfflineLong');
   if (s.state === 'error') return t('syncErrorLong', { p });
@@ -593,7 +594,7 @@ function viewSettings() {
   const studies = STUDIES.map(x => `<li><a href="${x.url}" target="_blank" rel="noopener">${esc(x.ref)}</a> — ${esc(x[lang()])}</li>`).join('');
   const pv = provider();
   const cloud = !available() ? '' : connected()
-    ? `<div class="srow"><span class="plogo">${I[pv.id === 'google' ? 'google' : 'microsoft']}</span><span class="tmain"><b>${esc(pv.name)}</b>${pv.email() ? `<span class="acct">${esc(pv.email())}</span>` : ''}<span id="syncstatus">${esc(syncLine())}</span></span>${syncBtn()}</div>`
+    ? `<div class="srow"><span class="plogo">${I[pv.icon]}</span><span class="tmain"><b>${esc(pvName())}</b>${pv.email() ? `<span class="acct">${esc(pv.email())}</span>` : ''}<span id="syncstatus">${esc(syncLine())}</span></span>${syncBtn()}</div>`
     : `<div class="srow"><span style="color:var(--amber)">${I.cloudOff.replace('width="16" height="16"', 'width="24" height="24"')}</span><span class="tmain"><b>${esc(t('cloudSave'))}</b><span>${esc(t(isLocal() ? 'localOnly' : 'notConnected'))}</span></span><button class="btn small" data-act="login">${esc(t('connect'))}</button></div>`;
   return `<div class="screen">
     <header class="hdr"><h1 class="h1 big">${esc(t('settings'))}</h1></header>
@@ -631,8 +632,9 @@ function viewSettings() {
         <button class="srow" data-act="export" style="min-height:54px"><span style="color:var(--ink-2)">${I.dl}</span><span class="tmain"><b style="font-weight:500">${esc(t('export'))}</b></span><span class="note" style="padding:0">JSON</span></button>
         <button class="srow" data-act="import" style="min-height:54px"><span style="color:var(--ink-2)">${I.ul}</span><span class="tmain"><b style="font-weight:500">${esc(t('import'))}</b></span></button>
         ${connected() ? `<button class="srow danger-txt" data-act="logout" style="min-height:54px">${I.out}<span class="tmain"><b>${esc(t('logout'))}</b></span></button>` : ''}
+        ${connected() && provider().id === 'mm' ? `<button class="srow danger-txt" data-act="delacct" style="min-height:54px">${I.x.replace('width="22" height="22"', 'width="20" height="20"')}<span class="tmain"><b>${esc(t('delAccount'))}</b></span></button>` : ''}
       </div>
-      ${available() && providers().length > 1 ? `<p class="note">${esc(t('cloudNote'))}</p>` : ''}</section>
+      ${available() && !accountsEnabled() && loginOptions().length > 1 ? `<p class="note">${esc(t('cloudNote'))}</p>` : ''}</section>
 
     <section style="display:flex;flex-direction:column;gap:8px"><h2 class="sect">${esc(t('instShort'))}</h2>
       <div class="group">${isStandalone()
@@ -643,7 +645,7 @@ function viewSettings() {
     <section style="display:flex;flex-direction:column;gap:8px"><h2 class="sect">${esc(t('about'))}</h2>
       <div class="group">
         <button class="srow" data-act="article" data-a="all"><span class="tmain"><b>${esc(t('method'))}</b><span>${esc(t('methodSub'))}</span></span>${I.chev}</button>
-        <a class="srow" href="privacy.html" style="text-decoration:none;color:inherit"><span class="tmain"><b>${esc(t('privacy'))}</b><span>${esc(t('privacySub'))}</span></span>${I.chev}</a>
+        <a class="srow" href="privacy.html" style="text-decoration:none;color:inherit"><span class="tmain"><b>${esc(t('privacy'))}</b><span>${esc(t(accountsEnabled() ? 'privacySubAcct' : 'privacySub'))}</span></span>${I.chev}</a>
         ${statsConfigured() ? `<div class="srow" style="min-height:64px"><span class="tmain"><b>${esc(t('statsRow'))}</b><span>${esc(t('statsSub'))}</span></span><button class="switch" role="switch" aria-checked="${statsOn()}" aria-label="${esc(t('statsRow'))}" data-act="stats"><i></i></button></div>` : ''}
         <div class="srow" style="min-height:48px;justify-content:space-between"><span class="note" style="padding:0">${esc(t('version'))}</span><span class="note" style="padding:0">${VERSION}</span></div>
       </div>
@@ -871,9 +873,11 @@ function showGate(reason, step) {
   $('#app').hidden = true; closeSheet(); ui.overlay = null; renderOverlay();
   const p = pal();
   const msg = { expired: t('gateExpired'), failed: t('gateFailed'), loggedOut: t('gateLoggedOut'), scope: t('gateScope'), cancelled: t('gateCancelled') }[reason] || '';
-  const last = lastProvider();
-  const list = providers().sort((a, b) => (b.id === last) - (a.id === last) || (a.id === 'google' ? -1 : 1));
-  const btns = list.map(pv => `<button class="btn sso" data-act="login" data-p="${pv.id}">${I[pv.id === 'google' ? 'google' : 'microsoft']}<span>${esc(t('gateWith', { a: pv.account }))}</span></button>`).join('');
+  const last = lastProvider(), mig = migrating();
+  const list = loginOptions().sort((a, b) => (b.id === last) - (a.id === last) || (a.id === 'google' ? -1 : 1));
+  const btns = list.map(pv => `<button class="btn sso" data-act="login" data-p="${pv.id}">${I[pv.icon]}<span>${esc(t('gateWith', { a: pv.account }))}</span></button>`).join('');
+  // Bascule vers le compte MuscleMap : un seul bouton, celui du compte utilisé jusqu'ici (l'autre reste accessible)
+  const migBtns = mig ? `${btns.split('</button>')[0]}</button><button class="glocal" data-act="login" data-p="${list[1] ? list[1].id : ''}">${esc(t('migOther', { a: list[1] ? list[1].account : '' }))}</button>` : '';
   const g = $('#gate');
   const head = `<div class="wordmark">MUSCLE<span>MAP</span></div><div class="tag">${esc(t('appTagline'))}</div>`;
   if (!step && inAppBrowser() && !inappSkipped()) step = 'inapp';
@@ -893,8 +897,9 @@ function showGate(reason, step) {
         ${isStandalone() ? '' : `<p class="gtip">${esc(t('localInstall'))}</p>`}</div>
         <div class="ssos"><button class="btn" data-act="localgo">${esc(t('localGo'))}</button><button class="btn sso" data-act="localback">${esc(t('back'))}</button></div><div class="gfoot">${langPill('gatelang')}</div>`
     : `${head}<div class="gbody">${bodyPair(m => ({ pec_haut: 1, pec_mil: 1, dorsal: 2, gastro: 2 }[m] === 1 ? heatColor(p, .7) : { dorsal: 1, gastro: 1 }[m] ? p.target : p.steel), p, { label: 'MuscleMap' })}</div>
-    <p>${esc(t(list.length > 1 ? 'gateText2' : 'gateText'))}</p><div class="ssos">${btns}</div>
-    <button class="glocal" data-act="localask">${esc(t('localLink'))}</button>
+    ${mig ? `<h2 class="gmig">${esc(t('migTitle'))}</h2><p>${esc(t('migText', { a: list[0] ? list[0].account : '' }))}</p><div class="ssos">${migBtns}</div>`
+      : `<p>${esc(t(accountsEnabled() ? 'gateTextAcct' : list.length > 1 ? 'gateText2' : 'gateText'))}</p><div class="ssos">${btns}</div>
+    <button class="glocal" data-act="localask">${esc(t('localLink'))}</button>`}
     <p class="err" role="alert">${esc(msg)}</p><div class="gfoot">${langPill('gatelang')}<a class="gpriv" href="privacy.html">${esc(t('privacy'))}</a></div>`;
   g.hidden = false;
 }
@@ -916,7 +921,7 @@ let opened = false, started = false;
 function countOpen() {
   if (opened || !started || !ui.unlocked) return;
   opened = true;
-  trackOpen({ connexion: connected() ? provider().id : isLocal() ? 'sans-compte' : 'aucune', installee: isStandalone() ? 'oui' : 'non', langue: lang() });
+  trackOpen({ connexion: connected() ? provider().statId : isLocal() ? 'sans-compte' : 'aucune', installee: isStandalone() ? 'oui' : 'non', langue: lang() });
 }
 
 /* ---------- bulle : nom du muscle (ou groupe musculaire) touché sur le corps, pendant la saisie ---------- */
@@ -1021,6 +1026,10 @@ document.addEventListener('click', e => {
     case 'bkx': backupSeen(); cardHandled(); render(); break;
     case 'bkexport': backupSeen(); cardHandled(); exportData(); render(); break;
     case 'logout': logout(); break;
+    case 'delacct':
+      if (!confirm(t('delAccountConfirm'))) break;
+      deleteAccount().then(() => { render(); toast(t('delAccountDone')); }, () => toast(t('delAccountFailed')));
+      break;
     case 'export': exportData(); break;
     case 'import': $('#importInput').click(); break;
     case 'lang': updateSettings({ lang: d.v }); setLang(d.v); render(); break;
