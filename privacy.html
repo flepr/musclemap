@@ -38,7 +38,7 @@
     <p><b>En bref : MuscleMap enregistre tes séances et tes réglages dans ton compte pour les retrouver sur tous tes appareils. Rien d'autre. Pas de publicité, pas de revente, pas de traceur publicitaire. Tu peux exporter tes données ou supprimer ton compte à tout moment depuis l'app.</b></p>
 
     <h3>Qui est responsable de tes données ?</h3>
-    <p>MuscleMap est une application gratuite créée par Fabien Lepère, à titre personnel, qui est responsable du traitement de tes données. Contact : <a href="mailto:CONTACT_EMAIL">CONTACT_EMAIL</a>.</p>
+    <p>MuscleMap est une application gratuite créée par Fabien Lepère, à titre personnel, qui est responsable du traitement de tes données. Contact : <a class="mail" href="#">…</a>.</p>
 
     <h3>Données enregistrées</h3>
     <ul>
@@ -88,7 +88,7 @@
     <ul>
       <li><b>Récupérer tes données</b> : Réglages › Exporter mes données (fichier JSON).</li>
       <li><b>Supprimer ton compte</b> et tes séances enregistrées en ligne : Réglages › Supprimer mon compte. Tes séances restent alors seulement sur ton appareil.</li>
-      <li><b>Pour toute autre demande</b> : écris à <a href="mailto:CONTACT_EMAIL">CONTACT_EMAIL</a>. Réponse sous un mois au plus.</li>
+      <li><b>Pour toute autre demande</b> : écris à <a class="mail" href="#">…</a>. Réponse sous un mois au plus.</li>
     </ul>
     <p>Si tu estimes que tes droits ne sont pas respectés, tu peux adresser une réclamation à la <a href="https://www.cnil.fr/fr/plaintes">CNIL</a>.</p>
 
@@ -116,7 +116,7 @@
     <p><b>In short: MuscleMap saves your workouts and settings in your account so you can find them on all your devices. Nothing else. No ads, no data sales, no ad trackers. You can export your data or delete your account at any time from the app.</b></p>
 
     <h3>Who is responsible for your data?</h3>
-    <p>MuscleMap is a free app created by Fabien Lepère, as an individual, who is the controller of your data. Contact: <a href="mailto:CONTACT_EMAIL">CONTACT_EMAIL</a>.</p>
+    <p>MuscleMap is a free app created by Fabien Lepère, as an individual, who is the controller of your data. Contact: <a class="mail" href="#">…</a>.</p>
 
     <h3>Data we store</h3>
     <ul>
@@ -166,7 +166,7 @@
     <ul>
       <li><b>Get your data</b>: Settings › Export my data (JSON file).</li>
       <li><b>Delete your account</b> and the workouts saved online: Settings › Delete my account. Your workouts then stay on your device only.</li>
-      <li><b>Any other request</b>: write to <a href="mailto:CONTACT_EMAIL">CONTACT_EMAIL</a>. Answer within one month at most.</li>
+      <li><b>Any other request</b>: write to <a class="mail" href="#">…</a>. Answer within one month at most.</li>
     </ul>
     <p>If you believe your rights are not respected, you can lodge a complaint with your data protection authority (in France, the <a href="https://www.cnil.fr/en">CNIL</a>).</p>
 
@@ -187,5 +187,12 @@
     <p>If this page changes in a significant way, the app will let you know. The date of the last update is shown at the top.</p>
   </section>
 </main>
+<script>
+  // Adresse de contact assemblée à l'affichage : elle n'apparaît jamais en entier dans le code de la page (anti-robots)
+  (function () {
+    var u = ['fabien', 'lepere'].join('.'), d = ['me', 'com'].join('.'), a = u + String.fromCharCode(64) + d;
+    document.querySelectorAll('a.mail').forEach(function (el) { el.href = 'mai' + 'lto:' + a; el.textContent = a; });
+  })();
+</script>
 </body>
 </html>
