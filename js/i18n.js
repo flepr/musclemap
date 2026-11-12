@@ -77,7 +77,7 @@ const S = {
     noSessions: 'Aucune séance enregistrée pour le moment.',
     weekdaysShort: ['LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM', 'DIM'],
 
-    muscles: 'Explorer', musclesMeta: '34 muscles · {e} exercices', search: 'Muscle ou exercice : dips, ischios…', searchLabel: 'Rechercher un muscle ou un exercice',
+    muscles: 'Explorer', musclesMeta: '34 muscles · {e} exercices', search: 'Muscle ou exercice : dips, ischios…', searchLabel: 'Rechercher un muscle ou un exercice', searchClear: 'Effacer la recherche', qWholeGroup: 'Groupe musculaire entier · {n} muscles', qChecked: '{x} : coché', qUnchecked: '{x} : décoché', qExAdded: '{x} · {n} muscles cochés', qExAdded1: '{x} · 1 muscle coché', qAllIn: 'cochés',
     basics: 'LES BASES', noResult: 'Aucun muscle ni exercice ne correspond.',
     exercises: 'Exercices', resMuscles: 'Muscles', exBrowse: 'Tous les exercices', exBrowseSub: 'Avec et sans matériel · {n} exercices',
     exPrimary: 'Muscles principaux', exPrimaryNote: 'Seuls les muscles qui font l’essentiel de l’effort sont indiqués, pas ceux qui aident ou stabilisent.',
@@ -231,7 +231,7 @@ const S = {
     noSessions: 'No workouts logged yet.',
     weekdaysShort: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
 
-    muscles: 'Explore', musclesMeta: '34 muscles · {e} exercises', search: 'Muscle or exercise: dips, hamstrings…', searchLabel: 'Search a muscle or an exercise',
+    muscles: 'Explore', musclesMeta: '34 muscles · {e} exercises', search: 'Muscle or exercise: dips, hamstrings…', searchLabel: 'Search a muscle or an exercise', searchClear: 'Clear search', qWholeGroup: 'Whole muscle group · {n} muscles', qChecked: '{x}: ticked', qUnchecked: '{x}: unticked', qExAdded: '{x} · {n} muscles ticked', qExAdded1: '{x} · 1 muscle ticked', qAllIn: 'ticked',
     basics: 'THE BASICS', noResult: 'No muscle or exercise matches.',
     exercises: 'Exercises', resMuscles: 'Muscles', exBrowse: 'All exercises', exBrowseSub: 'With and without equipment · {n} exercises',
     exPrimary: 'Main muscles', exPrimaryNote: 'Only the muscles doing most of the work are listed, not the ones that assist or stabilise.',

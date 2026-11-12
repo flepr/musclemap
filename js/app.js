@@ -10,7 +10,7 @@ import { backupCard, startBackupReminders, backupSeen } from './backup.js';
 import { trackOpen, trackSession, trackEvent, statsConfigured, statsOn, setStats, migrateStatsChoice } from './stats.js';
 import { isStandalone, guideHTML, installCard, startReminders, stopReminders, markSeen, promptInstall, onInstallChange, appUrl, tx, inAppBrowser, hostApp, intentUrl, isAndroid } from './install.js';
 
-const VERSION = '2.16.1';
+const VERSION = '2.16.2';
 /* Carte « Nouveautés » : montrée une fois aux personnes déjà inscrites (pas aux nouvelles, qui découvrent tout
    à l'accueil). Fermée = réglage synchronisé, elle ne revient sur aucun appareil. Changer NEWS pour en publier une autre. */
 const NEWS = '2.16';
@@ -41,6 +41,7 @@ const I = {
   hist: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>',
   musc: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 6.5h11M6.5 17.5h11"/><rect x="2" y="4" width="4.5" height="5" rx="1"/><rect x="17.5" y="4" width="4.5" height="5" rx="1"/><rect x="2" y="15" width="4.5" height="5" rx="1"/><rect x="17.5" y="15" width="4.5" height="5" rx="1"/><path d="M12 6.5v11"/></svg>',
   set: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>',
+  clear: '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="m8.6 8.6 6.8 6.8m0-6.8-6.8 6.8" fill="none" stroke="var(--bg)" stroke-width="2.2" stroke-linecap="round"/></svg>',
   search: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
   sun: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
   moon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>',
@@ -87,7 +88,7 @@ function applyTheme() {
 const pal = () => PALETTES[themeName()];
 
 /* ---------- état de l'interface ---------- */
-const ui = { tab: 'map', overlay: null, sheet: null, search: '', unlocked: false };
+const ui = { tab: 'map', overlay: null, sheet: null, search: '', qMap: '', unlocked: false };
 let draft = null;   // séance en cours de saisie
 
 /* ---------- rendu général ---------- */
@@ -198,6 +199,9 @@ function targetLabel(it) {
   return it.whole ? gName(it.group) : it.muscles.map(mName).join(', ');
 }
 function viewMap() {
+  if (ui.qMap.trim()) return `<div class="screen">
+    <header class="hdr"><div class="wordmark">MUSCLE<span>MAP</span></div>${syncPill()}</header>
+    ${searchBox('map', ui.qMap)}${browseResults(ui.qMap)}</div>`;
   const states = allStates();
   const list = targets(states);
   const pr = priority(list, (g, m) => low(g ? gName(g) : mName(m)));
@@ -225,6 +229,7 @@ function viewMap() {
 
   return `<div class="screen">
     <header class="hdr"><div class="wordmark">MUSCLE<span>MAP</span></div>${syncPill()}</header>
+    ${searchBox('map', '')}
     <div style="padding:0 4px">
       <div class="eyebrow">${esc(fmtLong(Date.now()))} · ${esc(lastTxt)}</div>
       <h1 class="h1" style="margin-top:4px">${esc(title)}</h1>
@@ -299,23 +304,85 @@ function groupThumb(g) {
   const p = pal(), ms = GROUPS[g].muscles;
   return groupFigure(ms, m => { const i = ms.indexOf(m); return i < 0 ? p.dim : p.tones[i]; }, p, gName(g));
 }
+/* Barre de recherche (Carte, Explorer, Séance) : croix pour effacer dès qu'il y a du texte */
+function searchBox(scope, value) {
+  return `<label class="search">${I.search}<span class="sr">${esc(t('searchLabel'))}</span><input type="search" data-q="${scope}" value="${esc(value)}" placeholder="${esc(t('search'))}" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search">${value ? `<button type="button" class="sclear" data-act="clearq" data-q="${scope}" aria-label="${esc(t('searchClear'))}">${I.clear}</button>` : ''}</label>`;
+}
+function getQ(scope) { return scope === 'map' ? ui.qMap : scope === 'workout' ? (draft ? draft.q : '') : ui.search; }
+function setQ(scope, v) { if (scope === 'map') ui.qMap = v; else if (scope === 'workout') { if (draft) draft.q = v; } else ui.search = v; }
+function rerenderQ(scope) { if (scope === 'workout') renderOverlay(); else render(); }
+function focusQ(scope, pos) {
+  const q = document.querySelector(`input[data-q="${scope}"]`);
+  if (q) { q.focus(); if (pos != null) try { q.setSelectionRange(pos, pos); } catch (er) {} }
+}
+/* muscles (nom courant, scientifique, groupe ; FR + EN) et exercices qui correspondent */
+function searchAll(query) {
+  const q = norm(query.trim());
+  // noms scientifiques des groupes musculaires seulement en dernier recours : « triceps » ne doit pas
+  // ramener les mollets (« triceps sural »)
+  const hit = (m, wide) => {
+    const g = GROUP_OF[m];
+    const hay = [MUSCLES[m].fr.name, MUSCLES[m].fr.sci, MUSCLES[m].en.name, MUSCLES[m].en.sci, GROUPS[g].fr, GROUPS[g].en, ...(wide ? [GROUPS[g].sciFr, GROUPS[g].sciEn] : [])].join(' ');
+    return norm(hay).includes(q);
+  };
+  let muscles = ALL_MUSCLES.filter(m => hit(m, false));
+  if (!muscles.length) muscles = ALL_MUSCLES.filter(m => hit(m, true));
+  const groups = Object.keys(GROUPS).filter(g => norm(GROUPS[g].fr + ' ' + GROUPS[g].en).includes(q));
+  const ex = searchExercises(q);
+  // un nom de muscle ou de groupe musculaire tapé (« ischios », « triceps ») : les muscles d'abord ;
+  // un nom d'exercice (« dips ») : les exercices d'abord
+  const nameHit = groups.length || muscles.some(m => norm(MUSCLES[m].fr.name + ' ' + MUSCLES[m].en.name).includes(q));
+  const exFirst = ex.length && (!muscles.length || (!nameHit && ex.some(x => norm(x.fr + ' ' + x.en).includes(q))));
+  return { muscles, groups, ex, exFirst };
+}
+/* Carte et Explorer : un résultat ouvre la fiche du groupe musculaire ou de l'exercice */
+function browseResults(query) {
+  const r = searchAll(query);
+  const mHtml = r.muscles.map(m => `<button class="lrow" style="min-height:62px;padding-left:14px" data-act="sheet" data-g="${GROUP_OF[m]}"><span class="tmain"><b>${esc(mName(m))}</b><span>${esc(gName(GROUP_OF[m]))} · ${esc(L(MUSCLES[m], 'sci'))}</span></span>${I.chev}</button>`).join('');
+  const exSec = r.ex.length ? `<section class="col6"><h2 class="sect">${esc(t('exercises'))} · ${r.ex.length}</h2>${r.ex.map(x => exRow(x)).join('')}</section>` : '';
+  const mSec = r.muscles.length ? `<section class="col6"><h2 class="sect">${esc(t('resMuscles'))} · ${r.muscles.length}</h2>${mHtml}</section>` : '';
+  return r.muscles.length || r.ex.length ? (r.exFirst ? exSec + mSec : mSec + exSec) : `<div class="empty">${esc(t('noResult'))}</div>`;
+}
+/* Écran Séance : un résultat coche / décoche directement (exercice = ses muscles principaux) */
+function exPickMuscles(x) { const tm = x.m.filter(isTracked); return tm.length ? tm : x.m; }
+function pickResults(query) {
+  const r = searchAll(query), sel = draft.sel;
+  const exHtml = r.ex.map(x => {
+    const ms = exPickMuscles(x), on = ms.every(m => sel.has(m));
+    const gs = exGroups(x).map((it, i) => i ? low(gName(it.group)) : gName(it.group)).join(' · ');
+    return `<button class="lrow exrow qrow" ${on ? 'disabled' : `data-act="qex" data-id="${x.id}"`}><span class="tmain"><b>${esc(exName(x))}</b><span>${esc(gs)}<em> · ${esc(exEq(x))}</em></span></span>${on ? `<span class="qdone">${I.check}${esc(t('qAllIn'))}</span>` : `<span class="qadd" aria-hidden="true">${I.plus.replace('width="28" height="28"', 'width="18" height="18"')}</span>`}</button>`;
+  }).join('');
+  let mHtml = '';
+  for (const g of Object.keys(GROUPS)) {
+    const ms = r.muscles.filter(m => GROUP_OF[m] === g);
+    if (!ms.length) continue;
+    if (r.groups.includes(g) && GROUPS[g].muscles.length > 1) {
+      const box = groupBox(g);
+      mHtml += `<button class="lrow exm pick qrow" data-act="qg" data-g="${g}" role="checkbox" aria-checked="${box === 'on' ? 'true' : box === 'mid' ? 'mixed' : 'false'}"><span class="box${box === 'on' ? ' on' : box === 'mid' ? ' mid' : ''}">${box === 'on' ? I.check.replace('width="14" height="14"', 'width="16" height="16"') : ''}</span><span class="tmain"><b>${esc(gName(g))}</b><span>${esc(t('qWholeGroup', { n: GROUPS[g].muscles.length }))}</span></span></button>`;
+    }
+    mHtml += ms.map(m => `<button class="lrow exm pick qrow${isTracked(m) ? '' : ' off'}" data-act="qm" data-m="${m}" role="checkbox" aria-checked="${sel.has(m)}">${sheetBox(sel.has(m))}<span class="tmain"><b>${esc(mName(m))}</b><span>${esc(gName(g))}${isTracked(m) ? '' : ' · ' + esc(t('notTracked'))}</span></span></button>`).join('');
+  }
+  const exSec = exHtml ? `<section class="col6"><h2 class="sect">${esc(t('exercises'))} · ${r.ex.length}</h2>${exHtml}</section>` : '';
+  const mSec = mHtml ? `<section class="col6"><h2 class="sect">${esc(t('resMuscles'))} · ${r.muscles.length}</h2>${mHtml}</section>` : '';
+  return `<div class="wres">${exSec || mSec ? (r.exFirst ? exSec + mSec : mSec + exSec) : `<div class="empty">${esc(t('noResult'))}</div>`}</div>`;
+}
+/* après un choix : on vide la recherche et on revient au corps, où les muscles cochés apparaissent */
+function afterPick(label, added, n) {
+  draft.q = '';
+  draft.expanded = new Set([...draft.expanded, ...expandedFor(draft.sel)]);
+  const a = document.activeElement; if (a && a.blur) a.blur();
+  renderOverlay();
+  const sc = $('#overlay .scroll'); if (sc) sc.scrollTop = 0;
+  toast(n != null ? t(n === 1 ? 'qExAdded1' : 'qExAdded', { x: label, n }) : t(added ? 'qChecked' : 'qUnchecked', { x: label }));
+  // au-dessus des boutons du bas de l'écran Séance
+  const tt = $('#toast .toast'), f = $('#overlay .ofoot');
+  if (tt && f) tt.style.bottom = `${f.offsetHeight + 12}px`;
+}
 function viewMuscles() {
   const states = allStates();
   let body;
   if (ui.search.trim()) {
-    const q = norm(ui.search.trim());
-    const hits = ALL_MUSCLES.filter(m => {
-      const g = GROUP_OF[m];
-      const hay = [MUSCLES[m].fr.name, MUSCLES[m].fr.sci, MUSCLES[m].en.name, MUSCLES[m].en.sci, GROUPS[g].fr, GROUPS[g].en, GROUPS[g].sciFr, GROUPS[g].sciEn].join(' ');
-      return norm(hay).includes(q);
-    });
-    const exHits = searchExercises(q);
-    const mHtml = hits.map(m => `<button class="lrow" style="min-height:62px;padding-left:14px" data-act="sheet" data-g="${GROUP_OF[m]}"><span class="tmain"><b>${esc(mName(m))}</b><span>${esc(gName(GROUP_OF[m]))} · ${esc(L(MUSCLES[m], 'sci'))}</span></span>${I.chev}</button>`).join('');
-    const exSec = exHits.length ? `<section class="col6"><h2 class="sect">${esc(t('exercises'))} · ${exHits.length}</h2>${exHits.map(x => exRow(x)).join('')}</section>` : '';
-    const mSec = hits.length ? `<section class="col6"><h2 class="sect">${esc(t('resMuscles'))} · ${hits.length}</h2>${mHtml}</section>` : '';
-    // un nom de muscle tapé (« ischios ») : les muscles d'abord ; un nom d'exercice : les exercices d'abord
-    const exFirst = exHits.length && (!hits.length || exHits.some(x => norm(x.fr + ' ' + x.en).includes(q)));
-    body = hits.length || exHits.length ? (exFirst ? exSec + mSec : mSec + exSec) : `<div class="empty">${esc(t('noResult'))}</div>`;
+    body = browseResults(ui.search);
   } else {
     const cards = [1, 2, 3].map(n => `<button class="bcard" data-act="article" data-a="${n}"><small>${esc(t('art' + n + 'Eyebrow'))}</small><b>${esc(t('art' + n + 'Title'))}</b><span>${esc(t('art' + n + 'Sub'))}</span></button>`).join('');
     const fams = FAMILIES.map(f => `<section style="display:flex;flex-direction:column;gap:6px"><h2 class="sect">${esc(fName(f.id))}</h2>${f.groups.map(g => `<button class="lrow" data-act="sheet" data-g="${g}"><span class="thumb">${groupThumb(g)}</span><span class="tmain"><b>${esc(gName(g))}</b><span>${esc(gSci(g))}</span></span><span class="n">${groupDot(g, states)}${GROUPS[g].muscles.length}</span>${I.chev}</button>`).join('')}</section>`).join('');
@@ -324,7 +391,7 @@ function viewMuscles() {
   }
   return `<div class="screen">
     <header class="hdr" style="align-items:flex-end"><h1 class="h1 big">${esc(t('muscles'))}</h1><span class="note" style="padding:0">${esc(t('musclesMeta', { e: EXERCISES.length }))}</span></header>
-    <label class="search">${I.search}<span class="sr">${esc(t('searchLabel'))}</span><input type="search" id="q" value="${esc(ui.search)}" placeholder="${esc(t('search'))}" autocomplete="off"></label>
+    ${searchBox('explore', ui.search)}
     ${body}
   </div>`;
 }
@@ -601,7 +668,7 @@ function openWorkout(session, preselect) {
   const live = !!session && session === openSession();
   const base = new Set(session ? knownMuscles(session.muscles) : []);
   const sel = new Set([...base, ...(preselect || [])]);
-  draft = { id: session ? session.id : null, original: session || null, live, base, datetime: toInput(session ? session.datetime : Date.now()), sel, expanded: expandedFor(sel), filter: 'all' };
+  draft = { id: session ? session.id : null, original: session || null, live, base, datetime: toInput(session ? session.datetime : Date.now()), sel, expanded: expandedFor(sel), filter: 'all', q: '' };
   ui.overlay = 'workout';
   closeSheet(); clearToast();
   document.body.classList.add('locked');
@@ -676,11 +743,12 @@ function workoutHTML() {
       <div class="when">${draft.live
         ? `<span class="since"><i class="ldot"></i>${esc(t('liveSince', { t: fmtTime(draft.original.datetime) }))}</span>`
         : `<label>${I.cal}<span class="sr">${esc(t('when'))}</span><input type="datetime-local" id="dt" value="${esc(draft.datetime)}"></label>`}</div>
-      <div class="selbody"><div data-bodyact="toggle">${bodyPair(fill, p, { interactive: true, label: t(byGroup ? 'counterNoneG' : 'counterNone') })}</div>
+      <div class="wsearch">${searchBox('workout', draft.q)}</div>
+      ${draft.q.trim() ? pickResults(draft.q) : `<div class="selbody"><div data-bodyact="toggle">${bodyPair(fill, p, { interactive: true, label: t(byGroup ? 'counterNoneG' : 'counterNone') })}</div>
         <button class="detailtgl" role="switch" aria-checked="${!byGroup}" data-act="tapmode" data-v="${byGroup ? 'muscles' : 'groups'}"><span>${esc(t('tapDetail'))}</span><span class="switch" aria-hidden="true" aria-checked="${!byGroup}"><i></i></span></button>
         <div class="count">${count}</div></div>
       <div class="chips" role="group">${chips}</div>
-      <div class="glist">${groupsHtml}</div>
+      <div class="glist">${groupsHtml}</div>`}
       ${draft.id ? `<div style="padding:18px 16px 0"><button class="btn danger" data-act="delete">${esc(t('delete'))}</button></div>` : ''}
     </div></div>
     <div class="ofoot"><div class="in">${foot}${!draft.id ? `<p class="note autonote">${esc(t('autoNote'))}</p>` : ''}</div></div>`;
@@ -988,6 +1056,15 @@ document.addEventListener('click', e => {
     }); break;
     case 'instcopy': (navigator.clipboard ? navigator.clipboard.writeText(appUrl()) : Promise.reject()).then(() => toast(t('instCopied')), () => toast(appUrl())); break;
     case 'filter': draft.filter = d.v; renderOverlay(); break;
+    case 'clearq': setQ(d.q, ''); rerenderQ(d.q); focusQ(d.q); break;
+    case 'qex': {
+      const x = EX_BY_ID[d.id]; if (!x || !draft) break;
+      const ms = exPickMuscles(x).filter(m => !draft.sel.has(m));
+      ms.forEach(m => draft.sel.add(m));
+      afterPick(exName(x), true, ms.length); break;
+    }
+    case 'qm': { if (!draft) break; const on = draft.sel.has(d.m); on ? draft.sel.delete(d.m) : draft.sel.add(d.m); afterPick(mName(d.m), !on); break; }
+    case 'qg': { if (!draft) break; const was = groupBox(d.g) === 'on'; toggleGroup(d.g); afterPick(gName(d.g), !was); break; }
     case 'exp': draft.expanded.has(d.g) ? draft.expanded.delete(d.g) : draft.expanded.add(d.g); renderOverlay(); break;
     case 'tm': draft.sel.has(d.m) ? draft.sel.delete(d.m) : draft.sel.add(d.m); renderOverlay(); break;
     case 'tg': toggleGroup(d.g); renderOverlay(); break;
@@ -1004,17 +1081,20 @@ document.addEventListener('click', e => {
   }
 });
 document.addEventListener('input', e => {
-  if (e.target.id === 'q') {
-    ui.search = e.target.value;
+  const sc = e.target.dataset && e.target.dataset.q;
+  if (sc) {
+    setQ(sc, e.target.value);
     const pos = e.target.selectionStart;
-    render();
-    const q = $('#q'); if (q) { q.focus(); try { q.setSelectionRange(pos, pos); } catch (er) {} }
+    rerenderQ(sc);
+    focusQ(sc, pos);
   }
   if (e.target.id === 'dt' && draft) draft.datetime = e.target.value;
 });
 document.addEventListener('keydown', e => {
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('li.pick[data-act]')) { e.preventDefault(); e.target.click(); return; }
   if (e.key !== 'Escape') return;
+  const qs = e.target.dataset && e.target.dataset.q;
+  if (qs && getQ(qs)) { setQ(qs, ''); rerenderQ(qs); focusQ(qs); return; }
   if (ui.sheet) closeSheet(); else if (ui.overlay && ui.overlay !== 'onb') closeOverlay();
 });
 $('#importInput').addEventListener('change', e => { if (e.target.files[0]) importFile(e.target.files[0]); e.target.value = ''; });
