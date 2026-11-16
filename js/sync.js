@@ -250,7 +250,7 @@ const google = {
 const SB = {
   url: 'https://bruthjsnwwbhqfowberc.supabase.co',
   key: 'sb_publishable_NCduKQKzBzS_yeaWXY8LBg__APFrYJL',   // clé « publishable », publique par nature : la sécurité repose sur les règles RLS
-  open: false,   // false = comptes MuscleMap réservés aux appareils de test (lien ?beta=1, ou 5 touches sur la version dans Réglages)
+  open: true,    // false = comptes MuscleMap réservés aux appareils de test (lien ?beta=1, ou 5 touches sur la version dans Réglages)
 };
 const BETA_KEY = 'musclemap.beta';
 /* Lien de test : ?beta=1 active les comptes MuscleMap sur cet appareil, ?beta=0 les retire */
@@ -262,7 +262,7 @@ try {
     history.replaceState({}, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash);
   }
 } catch (e) {}
-export const isBeta = () => lsGet(BETA_KEY) === '1';
+export const isBeta = () => !SB.open && lsGet(BETA_KEY) === '1';
 export function setBeta(on) { lsSet(BETA_KEY, on ? '1' : null); }
 const SB_STORE = 'musclemap.sb';            // session Supabase (gérée par auth-js)
 const MM_INFO = 'musclemap.mm.v1';          // { method: google | azure, email } — affichage et reconnexion
