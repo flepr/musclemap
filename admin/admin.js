@@ -9,6 +9,7 @@ const SB = {
   url: 'https://bruthjsnwwbhqfowberc.supabase.co',
   key: 'sb_publishable_NCduKQKzBzS_yeaWXY8LBg__APFrYJL',
 };
+const VERSION = '1.0.1';   // version de MuscleMap Admin (même règle que l'app : accord de Fabien avant de changer le 1er ou le 2e niveau)
 const UMAMI = 'https://cloud.umami.is/';
 const here = () => location.origin + location.pathname.replace(/index\.html$/, '');
 
@@ -117,6 +118,7 @@ function gate(msg, err) {
     <p>${esc(msg || 'Espace réservé à l’administrateur de MuscleMap.')}</p>
     ${err ? `<p class="err">${esc(err)}</p>` : ''}
     <button class="btn primary" data-act="login">Se connecter avec Microsoft</button>
+    <p class="note" style="margin-top:28px">MuscleMap Admin v${VERSION}</p>
   </div>`;
 }
 function forbidden(email) {
@@ -198,7 +200,8 @@ function render() {
       </button>
     </div>
     <p class="note center" style="margin-top:14px">Mis à jour ${esc(new Date(o.generated_at).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</p>
-    <button class="out" data-act="logout">Se déconnecter</button>`;
+    <button class="out" data-act="logout">Se déconnecter</button>
+    <p class="note center" style="margin-top:14px">MuscleMap Admin v${VERSION}</p>`;
 }
 
 /* ---------- chargement ---------- */
