@@ -3,7 +3,7 @@
    Stratégie « réseau d'abord » : en ligne, on sert toujours la dernière version
    publiée (et on met le cache à jour) ; hors ligne, on sert la copie en cache.
    Les appels Microsoft, Google et Supabase (connexion, séances) et les statistiques (Umami) ne passent jamais par le cache. */
-const CACHE = 'musclemap-v31';
+const CACHE = 'musclemap-v32';
 const ASSETS = [
   './', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png',
   './css/app.css', './js/app.js', './js/data.js', './js/i18n.js', './js/store.js', './js/logic.js', './js/body.js', './js/sync.js', './js/install.js', './js/backup.js', './js/stats.js', './js/exercises.js', './js/vendor/supabase-auth.js',
@@ -20,7 +20,7 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE && !k.startsWith('musclemap-admin-')).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -28,6 +28,8 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
+  // L'interface d'administration (admin/) a son propre service worker : on n'y touche pas
+  if (new URL(req.url).pathname.includes('/admin/')) return;
 
   const isNav = req.mode === 'navigate';
   // La page est rangée sous une clé unique, quels que soient ses paramètres (?code=… au retour de connexion)
