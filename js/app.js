@@ -5,12 +5,12 @@ import { t, L, setLang, lang, locale } from './i18n.js';
 import { state, load, save, upsertSession, deleteSession, restoreSession, updateSettings, uid, parseData, mergeInto, serialize } from './store.js';
 import { allStates, targets, priority, nextTarget, isTracked, trackedMuscles, sessionGroups, knownMuscles, openSession, closeStale, closedCopy, liveEnds, AUTO_CLOSE } from './logic.js';
 import { bodyPair, groupFigure, PALETTES, heatColor } from './body.js';
-import { initSync, syncNow, login, logout, reconnect, connected, available, lastStatus, provider, loginOptions, lastProvider, isLocal, useLocal, migrating, accountsEnabled, deleteAccount } from './sync.js';
+import { initSync, syncNow, login, logout, reconnect, connected, available, lastStatus, provider, loginOptions, lastProvider, isLocal, useLocal, migrating, accountsEnabled, deleteAccount, isBeta, setBeta } from './sync.js';
 import { backupCard, startBackupReminders, backupSeen } from './backup.js';
 import { trackOpen, trackSession, trackEvent, statsConfigured, statsOn, setStats, migrateStatsChoice } from './stats.js';
 import { isStandalone, guideHTML, installCard, startReminders, stopReminders, markSeen, promptInstall, onInstallChange, appUrl, tx, inAppBrowser, hostApp, intentUrl, isAndroid } from './install.js';
 
-const VERSION = '2.16.2';
+const VERSION = '2.16.3';
 /* Carte « Nouveautés » : montrée une fois aux personnes déjà inscrites (pas aux nouvelles, qui découvrent tout
    à l'accueil). Fermée = réglage synchronisé, elle ne revient sur aucun appareil. Changer NEWS pour en publier une autre. */
 const NEWS = '2.16';
@@ -137,6 +137,7 @@ function syncBtn() {
     ? `<button class="btn small acc" id="syncbtn" data-act="reconnect">${esc(t('reconnect'))}</button>`
     : `<button class="btn small" id="syncbtn" data-act="syncnow">${esc(t('syncNow'))}</button>`;
 }
+let verTaps = 0, verLast = 0;
 const pvName = () => provider().id === 'mm' ? t('mmAccount') : provider().name;
 function syncLine() {
   const s = lastStatus;
@@ -647,7 +648,7 @@ function viewSettings() {
         <button class="srow" data-act="article" data-a="all"><span class="tmain"><b>${esc(t('method'))}</b><span>${esc(t('methodSub'))}</span></span>${I.chev}</button>
         <a class="srow" href="privacy.html" style="text-decoration:none;color:inherit"><span class="tmain"><b>${esc(t('privacy'))}</b><span>${esc(t(accountsEnabled() ? 'privacySubAcct' : 'privacySub'))}</span></span>${I.chev}</a>
         ${statsConfigured() ? `<div class="srow" style="min-height:64px"><span class="tmain"><b>${esc(t('statsRow'))}</b><span>${esc(t('statsSub'))}</span></span><button class="switch" role="switch" aria-checked="${statsOn()}" aria-label="${esc(t('statsRow'))}" data-act="stats"><i></i></button></div>` : ''}
-        <div class="srow" style="min-height:48px;justify-content:space-between"><span class="note" style="padding:0">${esc(t('version'))}</span><span class="note" style="padding:0">${VERSION}</span></div>
+        <div class="srow" style="min-height:48px;justify-content:space-between"><span class="note" style="padding:0">${esc(t('version'))}</span><span class="note" style="padding:0" data-act="ver">${VERSION}${isBeta() ? ' · test' : ''}</span></div>
       </div>
       <p class="note credit">${esc(t('creditBy'))} <b>Fabien Lepère</b> (<a href="https://www.instagram.com/flepr/" target="_blank" rel="noopener">@flepr</a>) ${esc(t('creditClaude'))}</p></section>
   </div>`;
@@ -1026,6 +1027,13 @@ document.addEventListener('click', e => {
     case 'bkx': backupSeen(); cardHandled(); render(); break;
     case 'bkexport': backupSeen(); cardHandled(); exportData(); render(); break;
     case 'logout': logout(); break;
+    case 'ver': {
+      // 5 touches rapides sur le numéro de version : active / retire le test des comptes MuscleMap sur cet appareil
+      const now = Date.now();
+      verTaps = now - verLast < 1500 ? verTaps + 1 : 1; verLast = now;
+      if (verTaps >= 5) { verTaps = 0; setBeta(!isBeta()); toast(isBeta() ? 'Test des comptes : activé' : 'Test des comptes : désactivé'); setTimeout(() => location.reload(), 1200); }
+      break;
+    }
     case 'delacct':
       if (!confirm(t('delAccountConfirm'))) break;
       deleteAccount().then(() => { render(); toast(t('delAccountDone')); }, () => toast(t('delAccountFailed')));

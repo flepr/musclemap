@@ -248,9 +248,22 @@ const google = {
    La session Supabase se renouvelle seule : plus de « Reconnecter » toutes les heures.
    Tant que SB.url est vide, rien ne change : l'app reste en mode OneDrive / Google Drive. */
 const SB = {
-  url: '',   // https://<projet>.supabase.co
-  key: '',   // clé « publishable » (sb_publishable_…), publique par nature : la sécurité repose sur les règles RLS
+  url: 'https://bruthjsnwwbhqfowberc.supabase.co',
+  key: 'sb_publishable_NCduKQKzBzS_yeaWXY8LBg__APFrYJL',   // clé « publishable », publique par nature : la sécurité repose sur les règles RLS
+  open: false,   // false = comptes MuscleMap réservés aux appareils de test (lien ?beta=1, ou 5 touches sur la version dans Réglages)
 };
+const BETA_KEY = 'musclemap.beta';
+/* Lien de test : ?beta=1 active les comptes MuscleMap sur cet appareil, ?beta=0 les retire */
+try {
+  const q = new URLSearchParams(location.search);
+  if (q.has('beta')) {
+    lsSet(BETA_KEY, q.get('beta') === '1' ? '1' : null);
+    q.delete('beta');
+    history.replaceState({}, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash);
+  }
+} catch (e) {}
+export const isBeta = () => lsGet(BETA_KEY) === '1';
+export function setBeta(on) { lsSet(BETA_KEY, on ? '1' : null); }
 const SB_STORE = 'musclemap.sb';            // session Supabase (gérée par auth-js)
 const MM_INFO = 'musclemap.mm.v1';          // { method: google | azure, email } — affichage et reconnexion
 const MM_PENDING = 'musclemap.mm.pending';  // aller-retour de connexion en cours : { method, at }
@@ -271,7 +284,7 @@ async function getAuth() {
 
 const mm = {
   id: 'mm', name: 'MuscleMap',
-  enabled: () => !!(SB.url && SB.key),
+  enabled: () => !!(SB.url && SB.key) && (SB.open || lsGet(BETA_KEY) === '1'),
   info: lsJson(MM_INFO),
   rev: 0,
   saveInfo() { try { localStorage.setItem(MM_INFO, JSON.stringify(this.info)); } catch (e) {} },
