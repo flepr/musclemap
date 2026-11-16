@@ -10,8 +10,13 @@ const TOMB_TTL = 90 * 24 * 3.6e6;          // traces de suppression oubliées ap
 export const DEFAULT_SETTINGS = {
   lang: 'auto', theme: 'auto',
   recSmall: DEFAULTS.recSmall, recBig: DEFAULTS.recBig, targetDays: DEFAULTS.targetDays,
-  entry: 'groups', excluded: [], onboarded: false, stats: true, news: '', updatedAt: 0,
+  entry: 'groups', excluded: [], onboarded: false, stats: true, news: '', updatedAt: 0, t: {},
 };
+/* Réglages synchronisés un par un : t[clé] = date de la dernière modification de ce réglage.
+   À la fusion, chaque réglage garde la valeur modifiée le plus récemment ; un réglage jamais touché
+   (t = 0, valeur par défaut d'un appareil neuf) ne remplace jamais un réglage choisi ailleurs. */
+const SETTING_KEYS = ['lang', 'theme', 'recSmall', 'recBig', 'targetDays', 'entry', 'excluded', 'onboarded', 'stats', 'news'];
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 export const state = {
   sessions: [],
@@ -52,6 +57,13 @@ function cleanSettings(x) {
   s.stats = x.stats !== false;
   if (typeof x.news === 'string') s.news = x.news;   // dernière carte « Nouveautés » fermée
   s.updatedAt = +x.updatedAt || 0;
+  s.t = {};
+  if (x.t && typeof x.t === 'object') {
+    for (const k of SETTING_KEYS) if (+x.t[k] > 0) s.t[k] = +x.t[k];
+  } else if (s.updatedAt > 0) {
+    // Ancien format (réglages en bloc, avant la v2.17.2) : chaque réglage prend la date du bloc
+    for (const k of SETTING_KEYS) s.t[k] = s.updatedAt;
+  }
   return s;
 }
 export function parseData(txt) {
@@ -108,7 +120,13 @@ export function restoreSession(s) {
   upsertSession(s);
 }
 export function updateSettings(patch) {
-  state.settings = { ...state.settings, ...patch, updatedAt: Date.now() };
+  const now = Date.now(), cur = state.settings, t = { ...(cur.t || {}) };
+  let changed = false;
+  for (const k of Object.keys(patch)) {
+    if (same(cur[k], patch[k])) continue;          // valeur inchangée : sa date ne bouge pas
+    t[k] = now; changed = true;
+  }
+  state.settings = { ...cur, ...patch, t, updatedAt: changed ? now : (cur.updatedAt || 0) };
   save();
 }
 
@@ -137,6 +155,14 @@ export function mergeInto(incoming) {
   state.sessions = [...smap.values()];
   state.tombstones = [...tmap].map(([id, t]) => ({ id, t }));
 
-  // 5) Réglages : les plus récents gagnent.
-  if (inc.settings && (inc.settings.updatedAt || 0) > (state.settings.updatedAt || 0)) state.settings = inc.settings;
+  // 5) Réglages : réglage par réglage, la modification la plus récente gagne (à égalité, on garde celui d'ici).
+  if (inc.settings) {
+    const cur = state.settings, ct = cur.t || {}, it = inc.settings.t || {};
+    const next = { ...cur, t: { ...ct } };
+    for (const k of SETTING_KEYS) {
+      if ((it[k] || 0) > (ct[k] || 0)) { next[k] = inc.settings[k]; next.t[k] = it[k]; }
+    }
+    next.updatedAt = Math.max(cur.updatedAt || 0, inc.settings.updatedAt || 0);
+    state.settings = next;
+  }
 }
