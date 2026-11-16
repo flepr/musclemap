@@ -255,8 +255,8 @@ const SB_STORE = 'musclemap.sb';            // session Supabase (gérée par aut
 const MM_INFO = 'musclemap.mm.v1';          // { method: google | azure, email } — affichage et reconnexion
 const MM_PENDING = 'musclemap.mm.pending';  // aller-retour de connexion en cours : { method, at }
 const MIG_KEY = 'musclemap.migrate';        // bascule depuis OneDrive / Google Drive : { from, email, read, at }
+const MIG_TRY = 'musclemap.migrate.try';    // aller-retour silencieux chez l'ancien fournisseur, avant la bascule : { from, at }
 const mmRedirect = () => location.origin + location.pathname.replace(/index\.html$/, '');
-const DRIVE_SCOPE = { google: GG.driveScope, azure: 'Files.ReadWrite.AppFolder' };
 
 let auth = null;
 async function getAuth() {
@@ -281,15 +281,14 @@ const mm = {
   connected() { return !!lsGet(SB_STORE); },
   known() { return !!this.info.method; },
   email() { return this.info.email || ''; },
-  /* method : google | azure. opt.drive : demande aussi l'accès à l'ancien fichier (Google Drive / OneDrive),
-     le temps de le reprendre une dernière fois (bascule) ; opt.email : compte à proposer. */
+  /* method : google | azure ; opt.email : compte à proposer. Seulement les accès de base (identité, e-mail) :
+     Google n'affiche alors aucune case à cocher. */
   async login(method, opt) {
     opt = opt || {};
     method = method === 'azure' ? 'azure' : 'google';
     const a = await getAuth();
     const scopes = ['email', 'profile'];
     if (method === 'azure') scopes.unshift('openid');
-    if (opt.drive) scopes.push(DRIVE_SCOPE[method]);
     const queryParams = {};
     if (method === 'google') queryParams.prompt = 'select_account';
     const hint = opt.email || (this.info.method === method ? this.info.email : '');
@@ -321,14 +320,6 @@ const mm = {
       this.info = { method: pend.method || (s.user.app_metadata && s.user.app_metadata.provider) || 'google', email: s.user.email || '' };
       this.saveInfo();
       this.rev = 0;
-      // Bascule : on reprend une dernière fois l'ancien fichier, avec l'accès donné pendant la connexion
-      const mig = lsJson(MIG_KEY);
-      if (mig.from && s.provider_token) {
-        try {
-          const old = await readLegacy(mig.from, s.provider_token);
-          if (old) { mergeInto(old); saveSilently(); }
-        } catch (e) { /* pas grave : les séances de cet appareil sont de toute façon recopiées */ }
-      }
       return null;
     } catch (e) { return 'failed'; }
   },
@@ -382,29 +373,6 @@ const mm = {
   },
 };
 
-/* Lecture de l'ancien fichier de synchro avec le jeton Google / Microsoft obtenu à la bascule */
-async function readLegacy(from, tok) {
-  if (from === 'onedrive') {
-    const r = await fetch(GRAPH_CONTENT, { headers: { Authorization: 'Bearer ' + tok }, cache: 'no-store' });
-    if (r.status === 404) return null;
-    if (!r.ok) throw new Error('read ' + r.status);
-    return parseData(await r.text());
-  }
-  const H = { headers: { Authorization: 'Bearer ' + tok }, cache: 'no-store' };
-  const q = encodeURIComponent(`name='${FILE}' and trashed=false`);
-  const r = await fetch(`${DRIVE}?spaces=appDataFolder&q=${q}&fields=files(id)`, H);
-  if (!r.ok) throw new Error('list ' + r.status);
-  const out = { sessions: [], tombstones: [], settings: null };
-  for (const f of (await r.json()).files || []) {
-    const x = await fetch(`${DRIVE}/${f.id}?alt=media`, H);
-    if (!x.ok) continue;
-    const d = parseData(await x.text());
-    out.sessions.push(...d.sessions); out.tombstones.push(...d.tombstones);
-    if (d.settings && (!out.settings || d.settings.updatedAt > out.settings.updatedAt)) out.settings = d.settings;
-  }
-  return out;
-}
-
 /* =================== commun =================== */
 const PROVIDERS = { onedrive, google, mm };
 const LEGACY = { onedrive, google };
@@ -447,10 +415,10 @@ export function login(id, silent) {
   if (mm.enabled()) {
     const method = uiId(id) === 'microsoft' ? 'azure' : 'google';
     lsSet(LAST_KEY, uiId(id) || 'google');
-    // Bascule : avec le même fournisseur qu'avant, on demande aussi l'accès à l'ancien fichier pour le reprendre
+    // Bascule : avec le même fournisseur qu'avant, on propose directement le même compte
     const mig = lsJson(MIG_KEY);
     const same = !!mig.from && (mig.from === 'onedrive') === (method === 'azure');
-    mm.login(method, { drive: same && !mig.read, email: same ? mig.email : '' }).catch(() => hooks.gate('failed'));
+    mm.login(method, { email: same ? mig.email : '' }).catch(() => hooks.gate('failed'));
     return;
   }
   const p = uiId(id) === 'microsoft' ? onedrive : uiId(id) === 'google' ? google : current();
@@ -522,8 +490,8 @@ export function logout() {
 }
 
 /* Bascule vers le compte MuscleMap d'un appareil encore connecté à OneDrive / Google Drive :
-   dernière lecture de l'ancien fichier si son jeton est encore valide, puis on oublie l'ancienne
-   connexion (sans révoquer l'accès : la connexion suivante pourra encore lire le fichier). */
+   dernière lecture de l'ancien fichier (jeton encore valide, ou obtenu juste avant par un aller-retour
+   silencieux), puis on oublie l'ancienne connexion (sans révoquer l'accès). */
 async function startMigration(old) {
   let read = false;
   if (old.connected() && navigator.onLine !== false) {
@@ -564,7 +532,23 @@ export async function initSync(h) {
   // (une seule reconnexion ; ses séances, déjà sur l'appareil, sont recopiées dans le compte)
   if (mm.enabled() && current() !== mm) {
     const old = LEGACY[lsGet(PROV_KEY)] || (onedrive.known() ? onedrive : null);
-    if (old && (old.connected() || old.known())) await startMigration(old);
+    if (old && (old.connected() || old.known())) {
+      // Jeton de l'ancien fournisseur expiré : un aller-retour silencieux (sans écran si la session Google /
+      // Microsoft est ouverte, comme à chaque ouverture jusqu'ici) pour relire l'ancien fichier une dernière fois.
+      // Une seule tentative ; en cas d'échec, on bascule quand même (les séances de l'appareil sont recopiées).
+      let tok = null;
+      try { tok = await old.token(); } catch (e) {}
+      const tried = lsJson(MIG_TRY);
+      if (!tok && navigator.onLine !== false && !(tried.from === old.id && Date.now() - tried.at < 600000)) {
+        lsSet(MIG_TRY, JSON.stringify({ from: old.id, at: Date.now() }));
+        lsSet(PROV_KEY, old.id);
+        old.login(true);
+        return false;
+      }
+      lsSet(MIG_TRY, null);
+      if (back && back !== mm) err = '';      // retour de l'aller-retour silencieux : pas de message d'erreur
+      await startMigration(old);
+    }
     if (migrating()) { hooks.gate(err || 'migrate'); return false; }
   }
 
