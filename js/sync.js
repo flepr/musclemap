@@ -295,25 +295,40 @@ const mm = {
   known() { return !!this.info.method; },
   email() { return this.info.email || ''; },
   /* method : google | azure ; opt.email : compte à proposer. Seulement les accès de base (identité, e-mail) :
-     Google n'affiche alors aucune case à cocher. */
+     Google n'affiche alors aucune case à cocher.
+     Google : on demande nous-mêmes un jeton d'identité à Google (retour sur l'adresse de l'app), puis Supabase
+     le vérifie (signInWithIdToken). L'écran de Google affiche ainsi MuscleMap (ou flepr.github.io) et non
+     l'adresse technique du projet Supabase. Microsoft : connexion classique par Supabase. */
   async login(method, opt) {
     opt = opt || {};
     method = method === 'azure' ? 'azure' : 'google';
+    const hint = opt.email || (this.info.method === method ? this.info.email : '');
+    if (method === 'google') {
+      const nonce = randStr(32), state = randStr(12);
+      const hashed = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(nonce)))].map(x => ('0' + x.toString(16)).slice(-2)).join('');
+      lsSet(MM_PENDING, JSON.stringify({ method, at: Date.now(), state, nonce }));
+      const p = new URLSearchParams({
+        client_id: GG.clientId, redirect_uri: mmRedirect(), response_type: 'id_token',
+        scope: 'openid email profile', nonce: hashed, state,
+      });
+      if (hint) p.set('login_hint', hint); else p.set('prompt', 'select_account');
+      location.assign('https://accounts.google.com/o/oauth2/v2/auth?' + p.toString());
+      return;
+    }
     const a = await getAuth();
     const scopes = ['email', 'profile'];
     if (method === 'azure') scopes.unshift('openid');
     const queryParams = {};
-    if (method === 'google') queryParams.prompt = 'select_account';
-    const hint = opt.email || (this.info.method === method ? this.info.email : '');
     if (hint) queryParams.login_hint = hint;
     lsSet(MM_PENDING, JSON.stringify({ method, at: Date.now() }));
     const { error } = await a.signInWithOAuth({ provider: method, options: { redirectTo: mmRedirect(), scopes: scopes.join(' '), queryParams } });
     if (error) { lsSet(MM_PENDING, null); throw error; }
   },
-  /* Retour de Supabase : ?code=… (ou ?error=… / #error=…), seulement si un aller-retour a été lancé d'ici */
+  /* Retour de Supabase : ?code=… (ou ?error=… / #error=…), ou de Google : #id_token=…,
+     seulement si un aller-retour a été lancé d'ici */
   isReturn(u) {
     if (!lsGet(MM_PENDING)) return false;
-    return u.searchParams.has('code') || u.searchParams.has('error') || /(^#|&)error=/.test(u.hash);
+    return u.searchParams.has('code') || u.searchParams.has('error') || /(^#|&)(error|id_token)=/.test(u.hash);
   },
   async handleReturn(u) {
     let pend = {}; try { pend = JSON.parse(lsGet(MM_PENDING)) || {}; } catch (e) {}
@@ -327,7 +342,11 @@ const mm = {
     }
     try {
       const a = await getAuth();
-      const { data, error } = await a.exchangeCodeForSession(u.searchParams.get('code'));
+      const idToken = h.get('id_token');
+      if (idToken && h.get('state') !== pend.state) return 'failed';
+      const { data, error } = idToken
+        ? await a.signInWithIdToken({ provider: 'google', token: idToken, nonce: pend.nonce })
+        : await a.exchangeCodeForSession(u.searchParams.get('code'));
       if (error || !data || !data.session) throw error || new Error('no session');
       const s = data.session;
       this.info = { method: pend.method || (s.user.app_metadata && s.user.app_metadata.provider) || 'google', email: s.user.email || '' };
