@@ -22,6 +22,10 @@ const $actions = document.getElementById('actions');
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nf = n => Number(n || 0).toLocaleString('fr-FR');
 let data = null;
+// Réglage de l'admin (sur cet appareil) : compter ou non son propre compte dans les statistiques (non par défaut)
+const SELF_KEY = 'musclemap-admin.includeSelf';
+const includeSelf = () => { try { return localStorage.getItem(SELF_KEY) === '1'; } catch (e) { return false; } };
+function setIncludeSelf(on) { try { on ? localStorage.setItem(SELF_KEY, '1') : localStorage.removeItem(SELF_KEY); } catch (e) {} }
 
 /* ---------- appels à la base ---------- */
 async function token() {
@@ -130,7 +134,8 @@ function render() {
   const themeTxt = ['auto', 'dark', 'light'].filter(k => theme[k]).map(k => `${{ auto: 'auto', dark: 'sombre', light: 'clair' }[k]} ${nf(theme[k])}`).join(' · ') || '—';
   $actions.hidden = false;
   $view.innerHTML = `
-    <div class="tiles" style="margin-top:14px">
+    <p class="note" style="margin-top:12px">${includeSelf() ? 'Statistiques avec ton compte.' : 'Statistiques sans ton compte.'} Réglage en bas de page.</p>
+    <div class="tiles" style="margin-top:8px">
       <div class="tile"><b>${nf(a.total)}</b><span>comptes</span></div>
       <div class="tile"><b>${nf(act.week)}</b><span>actifs sur 7 jours</span></div>
       <div class="tile"><b>${nf(s.last7)}</b><span>séances sur 7 jours</span></div>
@@ -186,7 +191,14 @@ function render() {
         ${u.migrated ? '<span class="badge">repris</span>' : ''}
       </div>
     </div>`).join('')}
-    <p class="note center">Mis à jour ${esc(new Date(o.generated_at).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</p>`;
+    <h2>Réglages</h2>
+    <div class="card">
+      <button class="sw" role="switch" aria-checked="${includeSelf()}" data-act="self">
+        <span>Inclure mon compte dans les statistiques<br><span class="note" style="margin:0">La liste des comptes le montre toujours.</span></span><span class="k"></span>
+      </button>
+    </div>
+    <p class="note center" style="margin-top:14px">Mis à jour ${esc(new Date(o.generated_at).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</p>
+    <button class="out" data-act="logout">Se déconnecter</button>`;
 }
 
 /* ---------- chargement ---------- */
@@ -196,7 +208,7 @@ async function load() {
     if (!d || !d.session) { gate(); return; }
     const ok = await rpc('admin_check');
     if (!ok) { forbidden(d.session.user.email); return; }
-    const [overview, users] = await Promise.all([rpc('admin_overview'), rpc('admin_users')]);
+    const [overview, users] = await Promise.all([rpc('admin_overview', { p_exclude_admins: !includeSelf() }), rpc('admin_users')]);
     data = { overview, users: users || [] };
     render();
   } catch (e) {
@@ -226,6 +238,10 @@ document.addEventListener('click', async e => {
   } else if (act === 'logout') {
     try { await auth.signOut({ scope: 'local' }); } catch (err) {}
     gate('Déconnecté.');
+  } else if (act === 'self') {
+    setIncludeSelf(!includeSelf());
+    b.setAttribute('aria-checked', String(includeSelf()));
+    load();
   } else if (act === 'refresh') {
     $view.innerHTML = '<p class="muted center">Chargement…</p>';
     load();

@@ -1,7 +1,7 @@
 /* MuscleMap Admin — service worker (portée : /musclemap/admin/ uniquement).
    Réseau d'abord ; hors ligne, la dernière version de la page s'affiche (sans données).
    Les appels à Supabase et à Microsoft ne passent jamais par le cache. */
-const CACHE = 'musclemap-admin-v1';
+const CACHE = 'musclemap-admin-v2';
 const ASSETS = [
   './', './admin.css', './admin.js', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png',
   '../js/vendor/supabase-auth.js', '../js/data.js',
