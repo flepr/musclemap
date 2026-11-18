@@ -1,0 +1,7 @@
+// Mise en ligne sur Cloudflare (Workers, fichiers statiques) : https://musclem.app
+// Le dossier est publié tel quel ; .assetsignore liste ce qui n'est pas mis en ligne.
+{
+  "name": "musclemap",
+  "compatibility_date": "2026-11-01",
+  "assets": { "directory": "." }
+}
