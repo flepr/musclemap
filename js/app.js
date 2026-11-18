@@ -8,9 +8,9 @@ import { bodyPair, groupFigure, PALETTES, heatColor } from './body.js';
 import { initSync, syncNow, login, logout, reconnect, connected, available, lastStatus, provider, loginOptions, lastProvider, isLocal, useLocal, migrating, accountsEnabled, deleteAccount, isBeta, setBeta, previousAccount, loginPending, setLastProvider, legacyAsk, legacyHop, legacySkip, legacyResult } from './sync.js';
 import { backupCard, startBackupReminders, backupSeen } from './backup.js';
 import { trackOpen, trackSession, trackEvent, statsConfigured, statsOn, setStats, migrateStatsChoice } from './stats.js';
-import { isStandalone, guideHTML, installCard, startReminders, stopReminders, markSeen, promptInstall, onInstallChange, appUrl, tx, inAppBrowser, hostApp, intentUrl, isAndroid } from './install.js';
+import { isStandalone, guideHTML, installCard, startReminders, stopReminders, markSeen, promptInstall, onInstallChange, appUrl, tx, inAppBrowser, hostApp, intentUrl, isAndroid, isIOS } from './install.js';
 
-const VERSION = '2.18';
+const VERSION = '2.18.1';
 /* Carte « Nouveautés » : montrée une fois aux personnes déjà inscrites (pas aux nouvelles, qui découvrent tout
    à l'accueil). Fermée = réglage synchronisé, elle ne revient sur aucun appareil. Changer NEWS pour en publier une autre. */
 const NEWS = '2.16';
@@ -180,7 +180,8 @@ function renderMoved() {
   $('#app').hidden = true;
   const g = $('#gate'), m = ui.moved || {}, from = previousAccount();
   const head = `<div class="wordmark">MUSCLE<span>MAP</span></div><div class="tag">${esc(t('appTagline'))}</div>`;
-  const open = `<a class="btn" href="${esc(movedTarget())}" target="_blank" rel="noopener">${esc(t('movedOpen'))}</a>`;
+  // Depuis l'app installée, un lien vers une autre adresse s'ouvre dans une fenêtre intégrée à l'app : on vise le navigateur
+  const open = `<a class="btn" href="${esc(movedTarget())}" target="_blank" rel="noopener" data-act="movedopen">${esc(t('movedOpen'))}</a>`;
   const msg = { failed: t('gateFailed'), cancelled: t('gateCancelled') }[m.err] || '';
   if (movedSafe()) {
     // App installée (dans le navigateur, on a déjà été redirigé)
@@ -1148,6 +1149,22 @@ document.addEventListener('click', e => {
       try { localStorage.setItem(FRESH_KEY, '1'); } catch (e) {}
       if (isStandalone()) renderMoved(); else location.replace(movedTarget());
       break;
+    case 'movedopen': {
+      if (!isStandalone()) break;            // dans le navigateur : le lien suffit (nouvel onglet)
+      e.preventDefault();
+      const url = movedTarget();
+      if (isAndroid()) { location.href = 'intent://' + url.replace(/^https:\/\//, '') + '#Intent;scheme=https;end'; break; }
+      if (isIOS()) {
+        // iPhone : schéma « x-safari-https » pour passer dans Safari ; s'il n'agit pas, fenêtre intégrée + conseil
+        let left = false; const gone = () => { left = true; };
+        document.addEventListener('visibilitychange', gone, { once: true });
+        location.href = 'x-safari-' + url;
+        setTimeout(() => { document.removeEventListener('visibilitychange', gone); if (!left && !document.hidden) { toast(t('movedSafariTip')); window.open(url, '_blank'); } }, 1500);
+        break;
+      }
+      window.open(url, '_blank');
+      break;
+    }
     case 'movedcopy': (navigator.clipboard ? navigator.clipboard.writeText(NEW_HOME) : Promise.reject()).then(() => toast(t('instCopied')), () => toast(NEW_HOME)); break;
     case 'legget': legacyHop(false); break;
     case 'legno': legacySkip(); render(); break;
