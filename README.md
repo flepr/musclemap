@@ -20,3 +20,7 @@ En ligne : https://flepr.github.io/musclemap/
 - `js/sync.js` — connexion Microsoft / Google et synchro OneDrive / Google Drive (ID client Google dans `GG.clientId`)
 - `sw.js`, `manifest.json`, icônes — installation sur l'écran d'accueil et mode hors ligne
 - `fonts/` — Barlow et Barlow Condensed (SIL Open Font License 1.1, © The Barlow Project Authors)
+
+## Mise en ligne
+
+Cloudflare (Worker `musclemap`, fichiers statiques) : chaque envoi sur `main` met à jour https://musclem.app. Configuration : `wrangler.jsonc` ; fichiers non publiés : `.assetsignore`.
