@@ -9,19 +9,19 @@
 
    • OneDrive (Microsoft Graph) — OAuth2 + PKCE. Dossier /Apps/MuscleMap.
      App enregistrée sur https://entra.microsoft.com (« Personal Microsoft accounts
-     only », Redirect URI de type SPA = https://flepr.github.io/musclemap/).
+     only », Redirect URI de type SPA = https://flepr.github.io/musclemap/ ; ancien système).
      Microsoft limite à 24 h la durée de connexion des apps « SPA » : au-delà, l'app
      tente une reconnexion silencieuse tant que la session Microsoft est ouverte.
 
    • Google Drive — dossier caché de l'app (« appDataFolder », autorisation
      drive.appdata : l'app ne voit que son propre fichier, la personne ne le voit
      pas dans son Drive). Client OAuth « Application Web » sur
-     https://console.cloud.google.com (origine https://flepr.github.io, redirection
-     https://flepr.github.io/musclemap/). Sans serveur, Google ne donne qu'un jeton
+     https://console.cloud.google.com (origines https://musclem.app et, pendant la transition,
+     https://flepr.github.io ; redirections https://musclem.app/ et https://flepr.github.io/musclemap/). Sans serveur, Google ne donne qu'un jeton
      d'une heure, sans renouvellement : l'app se reconnecte en silence (aller-retour
      rapide chez Google) à l'ouverture ou au retour dans l'app ; en cours d'usage,
      la pastille propose « Reconnecter ». Les séances restent sur l'appareil en attendant. */
-import { parseData, serialize, mergeInto, saveSilently, onSave } from './store.js';
+import { parseData, serialize, mergeInto, saveSilently, onSave, state, updateSettings } from './store.js';
 
 const FILE = 'musclemap-data.json';
 const PROV_KEY = 'musclemap.provider';      // fournisseur de la session en cours
@@ -436,6 +436,102 @@ export const lastProvider = () => uiId(lsGet(LAST_KEY) || lsGet(PROV_KEY) || (on
 /* Bascule en cours depuis OneDrive / Google Drive (écran « reconnecte-toi une fois ») */
 export const migrating = () => mm.enabled() && !!lsJson(MIG_KEY).from;
 
+/* Compte utilisé avant le déménagement (ancienne adresse) : google | microsoft | '' */
+export const previousAccount = () => { const m = lsJson(MIG_KEY); return m.from ? uiId(m.from) : lastProvider(); };
+/* La page vient-elle d'un aller-retour de connexion lancé d'ici ? */
+export const loginPending = () => !!lsGet(MM_PENDING);
+/* Bouton à mettre en premier sur l'écran de connexion (lien venu de l'ancienne adresse) */
+export function setLastProvider(id) { if (id === 'google' || id === 'microsoft') lsSet(LAST_KEY, id); }
+
+/* =================== Récupération des séances de l'ancien système (v2.18, musclem.app) ===================
+   Jusqu'à la v2.17, les séances étaient rangées dans le Google Drive ou le OneDrive de chaque personne.
+   Sur la nouvelle adresse, aucun appareil ne garde trace de l'ancienne connexion : à la première connexion
+   d'un compte vide, on relit une fois l'ancien fichier, par un aller-retour silencieux chez Google ou
+   Microsoft (accès déjà accordé autrefois : aucun écran). S'il faut une action (session fermée…), la carte
+   « Récupère tes séances » le propose. Fait une fois par compte : réglage synchronisé settings.legacy. */
+const LEGACY_END = Date.parse('2027-06-01');
+const LEG_PENDING = 'mm_legacy';             // sessionStorage : aller-retour en cours { p, state, verifier, silent }
+const LEG_TRIED = 'mm_legacy_tried';         // sessionStorage : une seule tentative silencieuse par visite
+const LEG_ASK = 'musclemap.legacy.ask';      // l'aller-retour silencieux a besoin d'une action : carte de récupération
+export const legacyResult = { n: 0 };
+export const legacyAsk = () => lsGet(LEG_ASK) === '1' && !state.settings.legacy && mm.connected();
+const legacyDue = () => mm.enabled() && current() === mm && !state.settings.legacy && !lsGet(LEG_ASK) && Date.now() < LEGACY_END;
+export function legacySkip() { lsSet(LEG_ASK, null); updateSettings({ legacy: 'skipped' }); }
+export async function legacyHop(silent) {
+  const st = randStr(12), email = mm.info.email || '';
+  if (mm.info.method === 'azure') {
+    const verifier = randStr(48);
+    ssSet(LEG_PENDING, JSON.stringify({ p: 'onedrive', state: st, verifier, silent: !!silent }));
+    const p = new URLSearchParams({
+      client_id: MS.clientId, response_type: 'code', redirect_uri: mmRedirect(), response_mode: 'query',
+      scope: 'Files.ReadWrite.AppFolder openid profile', code_challenge: b64url(await sha256(verifier)), code_challenge_method: 'S256', state: st,
+    });
+    if (email) p.set('login_hint', email);
+    if (silent) p.set('prompt', 'none');
+    location.assign(MS.authority + '/oauth2/v2.0/authorize?' + p.toString());
+    return;
+  }
+  ssSet(LEG_PENDING, JSON.stringify({ p: 'google', state: st, silent: !!silent }));
+  const p = new URLSearchParams({ client_id: GG.clientId, redirect_uri: mmRedirect(), response_type: 'token', scope: GG.driveScope, state: st, include_granted_scopes: 'true' });
+  if (email) p.set('login_hint', email);
+  if (silent) p.set('prompt', 'none');
+  location.assign('https://accounts.google.com/o/oauth2/v2/auth?' + p.toString());
+}
+async function legacyRead(pend, u) {
+  if (pend.p === 'onedrive') {
+    const body = new URLSearchParams({
+      client_id: MS.clientId, grant_type: 'authorization_code', code: u.searchParams.get('code'),
+      redirect_uri: mmRedirect(), code_verifier: pend.verifier || '', scope: 'Files.ReadWrite.AppFolder openid profile',
+    });
+    const r = await fetch(MS.authority + '/oauth2/v2.0/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
+    if (!r.ok) throw new Error('token ' + r.status);
+    const tok = (await r.json()).access_token;
+    const f = await fetch(GRAPH_CONTENT, { headers: { Authorization: 'Bearer ' + tok }, cache: 'no-store' });
+    if (f.status === 404) return [];
+    if (!f.ok) throw new Error('read ' + f.status);
+    return [parseData(await f.text())];
+  }
+  const tok = new URLSearchParams(u.hash.slice(1)).get('access_token');
+  const H = { headers: { Authorization: 'Bearer ' + tok }, cache: 'no-store' };
+  const q = encodeURIComponent(`name='${FILE}' and trashed=false`);
+  const l = await fetch(`${DRIVE}?spaces=appDataFolder&q=${q}&fields=files(id)`, H);
+  if (!l.ok) throw new Error('list ' + l.status);
+  const out = [];
+  for (const { id } of (await l.json()).files || []) {
+    const f = await fetch(`${DRIVE}/${id}?alt=media`, H);
+    if (f.ok) out.push(parseData(await f.text()));
+  }
+  return out;
+}
+/* Retour de l'aller-retour de récupération : true s'il a été traité (l'adresse est alors nettoyée) */
+async function legacyReturn() {
+  let pend = null; try { pend = JSON.parse(ssGet(LEG_PENDING)); } catch (e) {}
+  if (!pend) return false;
+  const u = new URL(location.href), h = new URLSearchParams(u.hash.slice(1)), q = u.searchParams;
+  const google = pend.p === 'google';
+  if (google ? !/(^#|&)(access_token|error)=/.test(u.hash) : !(q.has('code') || q.has('error'))) return false;
+  ssSet(LEG_PENDING, null);
+  try { history.replaceState({}, '', mmRedirect()); } catch (e) {}
+  const err = google ? h.get('error') : q.get('error');
+  let done = false;
+  if (err) {
+    // Accès jamais accordé (consent_required ; chez Microsoft parfois interaction_required + AADSTS65001) :
+    // cette personne n'utilisait pas l'ancien système, rien à proposer
+    const desc = (google ? h.get('error_description') : q.get('error_description')) || '';
+    done = pend.silent && (err === 'consent_required' || /AADSTS65001/.test(desc));
+  } else if ((google ? h.get('state') : q.get('state')) === pend.state) {
+    try {
+      const files = await legacyRead(pend, u);
+      files.forEach(r => { legacyResult.n += r.sessions.length; mergeInto(r); });
+      saveSilently();
+      done = true;
+    } catch (e) {}
+  }
+  if (done) { lsSet(LEG_ASK, null); updateSettings({ legacy: 'done' }); }
+  else lsSet(LEG_ASK, '1');
+  return true;
+}
+
 let syncTimer = null, syncBusy = false, syncAgain = false, conflicts = 0;
 let hooks = { gate() {}, unlock() {}, status() {}, data() {}, idle: () => true };
 export let lastStatus = { state: 'local', at: null };
@@ -542,12 +638,14 @@ async function startMigration(old) {
 
 /* Démarrage : retour de connexion, session valide ? sinon écran de connexion.
    Renvoie true si l'app peut s'ouvrir. */
-export async function initSync(h) {
+export async function initSync(h, opt) {
   hooks = { ...hooks, ...h };
+  opt = opt || {};
   onSave(() => { if (connected()) requestSync(1200); });
 
   if (!available()) { setStatus('local'); return true; }
 
+  if (opt.legacy !== false) await legacyReturn();
   const u = new URL(location.href);
   const back = mm.enabled() && mm.isReturn(u) ? mm : google.isReturn(u) ? google : onedrive.isReturn(u) ? onedrive : null;
   const returning = !!back;
@@ -601,6 +699,14 @@ export async function initSync(h) {
     return false;
   }
 
+  // Première connexion d'un compte vide sur la nouvelle adresse : on va relire l'ancien Google Drive / OneDrive
+  if (p === mm && status === 'ok' && opt.legacy !== false && legacyDue() && !ssGet(LEG_TRIED)) {
+    await syncNow();
+    if (lastStatus.state === 'ok' && legacyDue()) {
+      if (!state.sessions.length && !state.tombstones.length) { ssSet(LEG_TRIED, '1'); await legacyHop(true); return false; }
+      updateSettings({ legacy: 'done' });   // compte déjà rempli : rien à récupérer
+    }
+  }
   window.addEventListener('focus', () => requestSync(300));
   document.addEventListener('visibilitychange', () => { if (!document.hidden) onResume(); });
   window.addEventListener('online', () => requestSync(0));

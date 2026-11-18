@@ -9,7 +9,7 @@ const SB = {
   url: 'https://bruthjsnwwbhqfowberc.supabase.co',
   key: 'sb_publishable_NCduKQKzBzS_yeaWXY8LBg__APFrYJL',
 };
-const VERSION = '1.0.1';   // version de MuscleMap Admin (même règle que l'app : accord de Fabien avant de changer le 1er ou le 2e niveau)
+const VERSION = '1.0.2';   // version de MuscleMap Admin (même règle que l'app : accord de Fabien avant de changer le 1er ou le 2e niveau)
 const UMAMI = 'https://cloud.umami.is/';
 const here = () => location.origin + location.pathname.replace(/index\.html$/, '');
 

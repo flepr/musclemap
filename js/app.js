@@ -5,12 +5,12 @@ import { t, L, setLang, lang, locale } from './i18n.js';
 import { state, load, save, upsertSession, deleteSession, restoreSession, updateSettings, uid, parseData, mergeInto, serialize } from './store.js';
 import { allStates, targets, priority, nextTarget, isTracked, trackedMuscles, sessionGroups, knownMuscles, openSession, closeStale, closedCopy, liveEnds, AUTO_CLOSE } from './logic.js';
 import { bodyPair, groupFigure, PALETTES, heatColor } from './body.js';
-import { initSync, syncNow, login, logout, reconnect, connected, available, lastStatus, provider, loginOptions, lastProvider, isLocal, useLocal, migrating, accountsEnabled, deleteAccount, isBeta, setBeta } from './sync.js';
+import { initSync, syncNow, login, logout, reconnect, connected, available, lastStatus, provider, loginOptions, lastProvider, isLocal, useLocal, migrating, accountsEnabled, deleteAccount, isBeta, setBeta, previousAccount, loginPending, setLastProvider, legacyAsk, legacyHop, legacySkip, legacyResult } from './sync.js';
 import { backupCard, startBackupReminders, backupSeen } from './backup.js';
 import { trackOpen, trackSession, trackEvent, statsConfigured, statsOn, setStats, migrateStatsChoice } from './stats.js';
 import { isStandalone, guideHTML, installCard, startReminders, stopReminders, markSeen, promptInstall, onInstallChange, appUrl, tx, inAppBrowser, hostApp, intentUrl, isAndroid } from './install.js';
 
-const VERSION = '2.17.2';
+const VERSION = '2.18';
 /* Carte « Nouveautés » : montrée une fois aux personnes déjà inscrites (pas aux nouvelles, qui découvrent tout
    à l'accueil). Fermée = réglage synchronisé, elle ne revient sur aucun appareil. Changer NEWS pour en publier une autre. */
 const NEWS = '2.16';
@@ -150,6 +150,116 @@ function syncLine() {
   return t('syncing');
 }
 
+/* ---------- déménagement (v2.18) : l'app vit désormais sur musclem.app ----------
+   L'ancienne adresse (flepr.github.io/musclemap) ne sert plus qu'à faire partir chacun sans rien perdre :
+   - dans le navigateur, redirection immédiate (avec le compte utilisé et la langue, pour le bon bouton) ;
+   - app installée : un seul écran, « installe la nouvelle » ;
+   - sans compte avec des séances sur l'appareil (elles sont liées à l'ancienne adresse) : d'abord
+     « Emporte tes séances » (se connecter, exporter un fichier, ou repartir de zéro).
+   Sur musclem.app : « Bon retour ! » pour qui arrive d'ici avec un compte ; la première connexion d'un compte vide
+   récupère l'ancien Google Drive / OneDrive (sync.js) ; sans compte, carte et Réglages « Récupérer mon ancien historique ». */
+const NEW_HOME = 'https://musclem.app/';
+const OLD_HOST = 'flepr.github.io';
+const OLD_HOME = 'https://flepr.github.io/musclemap/';
+const TRANSITION_END = Date.parse('2027-06-01');
+const onOldHost = () => location.hostname === OLD_HOST;
+const accountName = id => id === 'microsoft' ? 'Microsoft' : 'Google';
+const FRESH_KEY = 'musclemap.moved.fresh';   // sans compte : « repartir de zéro sur musclem.app » choisi ici
+const freshChosen = () => { try { return localStorage.getItem(FRESH_KEY) === '1'; } catch (e) { return false; } };
+/* Rien qui ne vive que sur cet appareil : séances déjà dans un compte (MuscleMap, Google Drive, OneDrive), aucune séance,
+   ou « repartir de zéro » choisi */
+const movedSafe = () => !state.sessions.length || connected() || provider().known() || migrating() || freshChosen();
+function movedTarget() {
+  const q = new URLSearchParams(), from = previousAccount();
+  if (from) q.set('from', from);
+  q.set('lang', lang());
+  return NEW_HOME + '?' + q.toString();
+}
+function renderMoved() {
+  ui.unlocked = false;
+  $('#app').hidden = true;
+  const g = $('#gate'), m = ui.moved || {}, from = previousAccount();
+  const head = `<div class="wordmark">MUSCLE<span>MAP</span></div><div class="tag">${esc(t('appTagline'))}</div>`;
+  const open = `<a class="btn" href="${esc(movedTarget())}" target="_blank" rel="noopener">${esc(t('movedOpen'))}</a>`;
+  const msg = { failed: t('gateFailed'), cancelled: t('gateCancelled') }[m.err] || '';
+  if (movedSafe()) {
+    // App installée (dans le navigateur, on a déjà été redirigé)
+    const and = isAndroid();
+    g.innerHTML = `${head}<div class="gwarn gmoved"><h2>${esc(t('movedTitle'))}</h2><p>${esc(t('movedIntro'))}</p>
+      <ol class="isteps"><li>${esc(t('movedStep1'))}</li><li>${esc(t(and ? 'movedStep2And' : 'movedStep2Ios'))}</li>
+      <li>${esc(from ? t('movedStep3', { a: accountName(from) }) : t('movedStep3Any'))}</li><li>${esc(t('movedStep4'))}</li></ol></div>
+      <div class="ssos">${open}<button class="btn sso" data-act="movedcopy">${esc(t('instCopy'))}</button></div>
+      <div class="gfoot">${langPill('gatelang')}</div>`;
+  } else {
+    // Sans compte, séances seulement ici : d'abord les emporter
+    const btns = ['google', 'microsoft'].map(id => `<button class="btn sso" data-act="login" data-p="${id}">${I[id]}<span>${esc(t('gateWith', { a: accountName(id) }))}</span></button>`).join('');
+    g.innerHTML = `${head}<div class="gwarn gmoved"><h2>${esc(t('takeTitle'))}</h2><p>${esc(t('takeIntro'))}</p>
+      <p><b>${esc(t('takeAcct'))}</b></p></div>
+      <div class="ssos">${btns}</div>
+      <div class="gwarn gmoved"><p>${esc(t(m.exported ? 'takeExported' : 'takeFile'))}</p></div>
+      <div class="ssos">${m.exported ? open : ''}<button class="btn sso" data-act="movedexport">${I.dl}<span>${esc(t('takeExport'))}</span></button></div>
+      <button class="glocal" data-act="movedfresh">${esc(t('takeFresh'))}</button>
+      <p class="err" role="alert">${esc(msg)}</p><div class="gfoot">${langPill('gatelang')}</div>`;
+  }
+  g.hidden = false;
+}
+const noneHere = () => !!(ui.moved && ui.moved.retrieve) && !state.sessions.length && !connected() && !provider().known() && !migrating();
+function renderNone() {
+  ui.unlocked = false; $('#app').hidden = true;
+  const g = $('#gate');
+  g.innerHTML = `<div class="wordmark">MUSCLE<span>MAP</span></div><div class="tag">${esc(t('appTagline'))}</div>
+    <div class="gwarn gmoved"><h2>${esc(t('noneTitle'))}</h2><p>${esc(t(isStandalone() ? 'noneTextApp' : 'noneText'))}</p></div>
+    <div class="ssos"><a class="btn" href="${esc(movedTarget())}">${esc(t('noneBack'))}</a></div><div class="gfoot">${langPill('gatelang')}</div>`;
+  g.hidden = false;
+}
+async function oldHostBoot() {
+  ui.moved = {};
+  // Venu de musclem.app (« Récupérer mon ancien historique ») : si rien n'est ici, on l'explique au lieu de renvoyer aussitôt
+  try { const q = new URLSearchParams(location.search); if (q.has('retrieve')) { ui.moved.retrieve = true; history.replaceState({}, '', location.pathname); } } catch (e) {}
+  if (noneHere()) { renderNone(); return; }
+  // Retour d'une connexion lancée depuis « Emporte tes séances » : on la termine (séances copiées dans le compte)
+  if (loginPending()) {
+    await initSync({ gate: r => { ui.moved.err = r; }, unlock() {}, status() {}, data() {}, idle: () => true }, { legacy: false });
+  }
+  if (movedSafe() && !isStandalone()) { location.replace(movedTarget()); return; }
+  renderMoved();
+}
+
+/* ---------- sans compte sur musclem.app : « MuscleMap a été mis à jour » (séances restées dans l'ancienne version) ----------
+   Carte tant qu'aucune séance n'est enregistrée ici et qu'elle n'a pas été fermée ; ensuite, toujours accessible
+   dans Réglages › Synchronisation et données. */
+const OLDLOCAL_KEY = 'musclemap.oldlocal.seen';
+const oldLocalOffer = () => !onOldHost() && isLocal() && Date.now() < TRANSITION_END;
+function oldLocalCard() {
+  let seen = false; try { seen = localStorage.getItem(OLDLOCAL_KEY) === '1'; } catch (e) {}
+  if (seen || !oldLocalOffer() || state.sessions.length) return '';
+  return `<section class="card newscard" aria-labelledby="ol-h">
+    <div class="nhead"><div class="tmain"><small>${esc(t('olEyebrow'))}</small><b id="ol-h">${esc(t('olCardTitle'))}</b></div>
+      <button class="iconbtn" data-act="oldx" aria-label="${esc(t('close'))}">${I.x.replace('width="22" height="22"', 'width="20" height="20"')}</button></div>
+    <p class="note" style="padding:0">${esc(t('olCardText'))}</p>
+    <div class="ibtns"><button class="btn small acc" data-act="oldlocal">${esc(t('olCardGo'))}</button><button class="btn small" data-act="oldx">${esc(t('newsOk'))}</button></div>
+  </section>`;
+}
+function oldLocalHTML() {
+  return `<div class="ohdr"><button class="iconbtn" data-act="closeov" aria-label="${esc(t('back'))}">${I.back}</button><h1></h1><span></span></div>
+    <div class="scroll"><div class="onb" style="padding-top:12px"><h2 class="h1">${esc(t('olTitle'))}</h2><p>${esc(t('olText'))}</p>
+      <ol class="isteps"><li>${esc(t('olStep1'))}</li><li>${esc(t('olStep2'))}</li><li>${esc(t('olStep3'))}</li></ol>
+      <a class="btn" href="${OLD_HOME}?retrieve=1">${esc(t('olOpen'))}</a>
+      <p class="note">${esc(t('olFile'))}</p></div></div>`;
+}
+
+/* ---------- avec un compte : carte « Récupère tes séances » (ancien Google Drive / OneDrive), seulement si
+   l'aller-retour silencieux de la première connexion n'a pas suffi ---------- */
+function legacyCard() {
+  if (!legacyAsk()) return '';
+  return `<section class="card newscard" aria-labelledby="leg-h">
+    <div class="nhead"><div class="tmain"><small>${esc(t('legEyebrow'))}</small><b id="leg-h">${esc(t('legTitle'))}</b></div>
+      <button class="iconbtn" data-act="legno" aria-label="${esc(t('close'))}">${I.x.replace('width="22" height="22"', 'width="20" height="20"')}</button></div>
+    <p class="note" style="padding:0">${esc(t('legText', { d: provider().account === 'Microsoft' ? 'OneDrive' : 'Google Drive' }))}</p>
+    <div class="ibtns"><button class="btn small acc" data-act="legget">${esc(t('legGet'))}</button><button class="btn small" data-act="legno">${esc(t('legNo'))}</button></div>
+  </section>`;
+}
+
 /* ---------- carte « Nouveautés » ---------- */
 function newsCard() {
   if (!state.settings.onboarded || state.settings.news === NEWS) return '';
@@ -237,7 +347,7 @@ function viewMap() {
       <h1 class="h1" style="margin-top:4px">${esc(title)}</h1>
       ${sub ? `<p class="note" style="padding:6px 0 0">${esc(sub)}</p>` : ''}
     </div>
-    ${openSession() ? liveCard() : newsCard() || reminderCard()}
+    ${openSession() ? liveCard() : legacyCard() || oldLocalCard() || newsCard() || reminderCard()}
     <section class="card mapcard" aria-label="${esc(t('mapLabel'))}">
       <div data-bodyact="sheet">${bodyPair(mapFill(states, pal()), pal(), { interactive: true, label: t('mapLabel') })}</div>
       <div class="views"><span>${esc(t('viewFront'))}</span><span>${esc(t('viewBack'))}</span></div>
@@ -632,6 +742,7 @@ function viewSettings() {
         ${cloud}
         <button class="srow" data-act="export" style="min-height:54px"><span style="color:var(--ink-2)">${I.dl}</span><span class="tmain"><b style="font-weight:500">${esc(t('export'))}</b></span><span class="note" style="padding:0">JSON</span></button>
         <button class="srow" data-act="import" style="min-height:54px"><span style="color:var(--ink-2)">${I.ul}</span><span class="tmain"><b style="font-weight:500">${esc(t('import'))}</b></span></button>
+        ${oldLocalOffer() ? `<button class="srow" data-act="oldlocal" style="min-height:54px"><span style="color:var(--ink-2)">${I.hist}</span><span class="tmain"><b style="font-weight:500">${esc(t('olShort'))}</b></span>${I.chev}</button>` : ''}
         ${connected() ? `<button class="srow danger-txt" data-act="logout" style="min-height:54px">${I.out}<span class="tmain"><b>${esc(t('logout'))}</b></span></button>` : ''}
         ${connected() && provider().id === 'mm' ? `<button class="srow danger-txt" data-act="delacct" style="min-height:54px">${I.x.replace('width="22" height="22"', 'width="20" height="20"')}<span class="tmain"><b>${esc(t('delAccount'))}</b></span></button>` : ''}
       </div>
@@ -851,7 +962,7 @@ function renderOverlay() {
   const o = $('#overlay');
   if (!ui.overlay) { o.innerHTML = ''; if (!ui.sheet) document.body.classList.remove('locked'); return; }
   const prev = o.querySelector('.scroll'), y = prev ? prev.scrollTop : 0;
-  const html = ui.overlay === 'workout' ? workoutHTML() : ui.overlay === 'exlist' ? exListHTML() : ui.overlay === 'tracked' ? trackedHTML() : ui.overlay === 'onb' ? onbHTML() : ui.overlay === 'install' ? installHTML() : articleHTML(ui.article);
+  const html = ui.overlay === 'workout' ? workoutHTML() : ui.overlay === 'exlist' ? exListHTML() : ui.overlay === 'tracked' ? trackedHTML() : ui.overlay === 'onb' ? onbHTML() : ui.overlay === 'install' ? installHTML() : ui.overlay === 'oldlocal' ? oldLocalHTML() : articleHTML(ui.article);
   o.innerHTML = `<div class="overlay" role="dialog" aria-modal="true">${html}</div>`;
   const nx = o.querySelector('.scroll'); if (nx) nx.scrollTop = y;
 }
@@ -878,7 +989,9 @@ function showGate(reason, step) {
   const list = loginOptions().sort((a, b) => (b.id === last) - (a.id === last) || (a.id === 'google' ? -1 : 1));
   const btns = list.map(pv => `<button class="btn sso" data-act="login" data-p="${pv.id}">${I[pv.icon]}<span>${esc(t('gateWith', { a: pv.account }))}</span></button>`).join('');
   // Bascule vers le compte MuscleMap : un seul bouton, celui du compte utilisé jusqu'ici (l'autre reste accessible)
-  const migBtns = mig ? `${btns.split('</button>')[0]}</button><button class="glocal" data-act="login" data-p="${list[1] ? list[1].id : ''}">${esc(t('migOther', { a: list[1] ? list[1].account : '' }))}</button>` : '';
+  // Arrivée depuis l'ancienne adresse (« Bon retour ») : même présentation, le compte d'avant en grand
+  let welcome = null; try { welcome = accountsEnabled() && !mig ? sessionStorage.getItem('mm_welcome') : null; } catch (e) {}
+  const migBtns = mig || welcome ? `${btns.split('</button>')[0]}</button><button class="glocal" data-act="login" data-p="${list[1] ? list[1].id : ''}">${esc(t('migOther', { a: list[1] ? list[1].account : '' }))}</button>` : '';
   const g = $('#gate');
   const head = `<div class="wordmark">MUSCLE<span>MAP</span></div><div class="tag">${esc(t('appTagline'))}</div>`;
   if (!step && inAppBrowser() && !inappSkipped()) step = 'inapp';
@@ -899,6 +1012,7 @@ function showGate(reason, step) {
         <div class="ssos"><button class="btn" data-act="localgo">${esc(t('localGo'))}</button><button class="btn sso" data-act="localback">${esc(t('back'))}</button></div><div class="gfoot">${langPill('gatelang')}</div>`
     : `${head}<div class="gbody">${bodyPair(m => ({ pec_haut: 1, pec_mil: 1, dorsal: 2, gastro: 2 }[m] === 1 ? heatColor(p, .7) : { dorsal: 1, gastro: 1 }[m] ? p.target : p.steel), p, { label: 'MuscleMap' })}</div>
     ${mig ? `<h2 class="gmig">${esc(t('migTitle'))}</h2><p>${esc(t('migText', { a: list[0] ? list[0].account : '' }))}</p><div class="ssos">${migBtns}</div>`
+      : welcome ? `<h2 class="gmig">${esc(t('gateWelcomeTitle'))}</h2><p>${esc(t('gateWelcome', { a: list[0] ? list[0].account : '' }))}</p><div class="ssos">${migBtns}</div>`
       : `<p>${esc(t(accountsEnabled() ? 'gateTextAcct' : list.length > 1 ? 'gateText2' : 'gateText'))}</p><div class="ssos">${btns}</div>
     <button class="glocal" data-act="localask">${esc(t('localLink'))}</button>`}
     <p class="err" role="alert">${esc(msg)}</p><div class="gfoot">${langPill('gatelang')}<a class="gpriv" href="privacy.html">${esc(t('privacy'))}</a></div>`;
@@ -1023,9 +1137,20 @@ document.addEventListener('click', e => {
       if (pendingUnlock) { pendingUnlock = false; unlock(); maybeOnboard(); } else showGate(''); break;
     case 'localask': if (isLocal()) useLocal(); else showGate('', 'local'); break;
     case 'localback': showGate(''); break;
+    case 'oldlocal': ui.overlay = 'oldlocal'; document.body.classList.add('locked'); renderOverlay(); break;
+    case 'oldx': try { localStorage.setItem(OLDLOCAL_KEY, '1'); } catch (e) {} render(); break;
     case 'localgo': startBackupReminders(); useLocal(); maybeOnboard(); break;
     case 'bkx': backupSeen(); cardHandled(); render(); break;
     case 'bkexport': backupSeen(); cardHandled(); exportData(); render(); break;
+    case 'movedexport': exportData(); ui.moved.exported = true; renderMoved(); break;
+    case 'movedfresh':
+      if (!confirm(t('takeFreshConfirm'))) break;
+      try { localStorage.setItem(FRESH_KEY, '1'); } catch (e) {}
+      if (isStandalone()) renderMoved(); else location.replace(movedTarget());
+      break;
+    case 'movedcopy': (navigator.clipboard ? navigator.clipboard.writeText(NEW_HOME) : Promise.reject()).then(() => toast(t('instCopied')), () => toast(NEW_HOME)); break;
+    case 'legget': legacyHop(false); break;
+    case 'legno': legacySkip(); render(); break;
     case 'logout': logout(); break;
     case 'ver': {
       // 5 touches rapides sur le numéro de version : active / retire le test des comptes MuscleMap sur cet appareil
@@ -1053,7 +1178,7 @@ document.addEventListener('click', e => {
     case 'closeov': closeOverlay(); break;
     case 'track': toggleTrack([d.m], el.getAttribute('aria-checked') !== 'true'); if (ui.overlay) renderOverlay(); if (ui.sheet) renderSheet(); render(); break;
     case 'trackg': toggleTrack(GROUPS[d.g].muscles, el.getAttribute('aria-checked') !== 'true'); renderOverlay(); render(); break;
-    case 'gatelang': if (d.v === lang()) break; setPendingLang(d.v); setLang(d.v); showGate(ui.gate ? ui.gate.reason : '', ui.gate ? ui.gate.step : undefined); break;
+    case 'gatelang': if (d.v === lang()) break; if (ui.moved) { setPendingLang(d.v); setLang(d.v); noneHere() ? renderNone() : renderMoved(); break; } setPendingLang(d.v); setLang(d.v); showGate(ui.gate ? ui.gate.reason : '', ui.gate ? ui.gate.step : undefined); break;
     case 'onblang': { if (d.v === lang()) break; const sc = $('#overlay .scroll'), y = sc ? sc.scrollTop : 0;
       updateSettings({ lang: d.v }); setLang(d.v); renderOverlay(); if (ui.unlocked) render();
       const sc2 = $('#overlay .scroll'); if (sc2) sc2.scrollTop = y; break; }
@@ -1133,10 +1258,22 @@ function maybeOnboard() {
 /* le navigateur propose l'installation en un geste (Android, Chrome/Edge sur ordinateur) : on affiche le bouton */
 onInstallChange(() => { if (ui.overlay === 'install' || (ui.overlay === 'onb' && ui.onbStep === 4)) renderOverlay(); if (ui.unlocked) render(); });
 load();
+/* Arrivée depuis l'ancienne adresse : ?from=google|microsoft (bouton à mettre en premier) et ?lang=fr|en */
+if (!onOldHost()) {
+  const q = new URLSearchParams(location.search);
+  if (q.has('from') || q.has('lang')) {
+    const f = q.get('from'), l = q.get('lang');
+    if (f === 'google' || f === 'microsoft') { setLastProvider(f); try { sessionStorage.setItem('mm_welcome', f); } catch (e) {} }
+    if ((l === 'fr' || l === 'en') && state.settings.lang === 'auto' && !pendingLang()) setPendingLang(l);
+    q.delete('from'); q.delete('lang');
+    try { history.replaceState({}, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash); } catch (e) {}
+  }
+}
 migrateStatsChoice();
 setLang(pendingLang() || state.settings.lang);
 applyTheme();
-initSync({
+if (onOldHost()) oldHostBoot();
+else initSync({
   gate: reason => showGate(reason),
   unlock: () => unlock(),
   status: () => updateSyncUI(),
@@ -1144,6 +1281,7 @@ initSync({
   data: () => { applyPendingLang(); setLang(state.settings.lang); applyTheme(); if (ui.unlocked) { render(); if (ui.overlay && ui.overlay !== 'workout') renderOverlay(); } },
 }).then(ok => {
   if (ok) { if (!ui.unlocked) unlock(); if (isLocal()) startBackupReminders(); maybeOnboard(); }
+  if (ok && legacyResult.n) toast(legacyResult.n === 1 ? t('legDone1') : t('legDone', { n: legacyResult.n }));
 }).finally(() => { started = true; countOpen(); if (ui.unlocked && !ui.overlay) render(); });
 
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {

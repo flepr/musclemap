@@ -10,14 +10,14 @@ import { state, updateSettings } from './store.js';
 
 const WEBSITE_ID = '5927f278-4201-4080-ac46-bd9ccbcdb150';                         // ID du site dans Umami Cloud (vide = statistiques coupées)
 const SCRIPT = 'https://cloud.umami.is/script.js';
-const PROD_HOST = 'flepr.github.io';           // pas de statistiques pendant les tests en local
+const PROD_HOSTS = ['musclem.app', 'flepr.github.io'];   // nouvelle adresse + ancienne pendant la transition ; rien en local
 const KEY = 'musclemap.stats.v1';              // repères de l'appareil : { device, day, week }
 
 const read = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } };
 const write = o => { try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) {} };
 
 export const statsConfigured = () => !!WEBSITE_ID;
-export const statsAvailable = () => !!WEBSITE_ID && location.hostname === PROD_HOST;
+export const statsAvailable = () => !!WEBSITE_ID && PROD_HOSTS.includes(location.hostname);
 export const statsOn = () => state.settings.stats !== false;
 export function setStats(on) {
   updateSettings({ stats: !!on });
@@ -43,7 +43,7 @@ function boot() {
     el.dataset.autoTrack = 'false';      // on décide nous-mêmes de ce qui part
     el.dataset.excludeSearch = 'true';
     el.dataset.excludeHash = 'true';
-    el.dataset.domains = PROD_HOST;
+    el.dataset.domains = PROD_HOSTS.join(',');
     el.onload = () => { resolve(true); flush(); };
     el.onerror = () => resolve(false);   // bloqueur de contenu, hors ligne… : tant pis, l'app continue
     document.head.appendChild(el);

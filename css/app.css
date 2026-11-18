@@ -443,3 +443,7 @@ details.why .txt b { color: var(--ink); }
 .lrow.exm.pick { min-height: 62px; gap: 14px; }
 .lrow.exm.pick[disabled] { opacity: 1; cursor: default; }
 .sheet .foot .btn[disabled] { opacity: .4; pointer-events: none; }
+
+/* déménagement vers musclem.app (v2.18) */
+a.btn { text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+#gate .gmoved .isteps { margin: 10px 0 0; }

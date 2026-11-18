@@ -10,12 +10,12 @@ const TOMB_TTL = 90 * 24 * 3.6e6;          // traces de suppression oubliées ap
 export const DEFAULT_SETTINGS = {
   lang: 'auto', theme: 'auto',
   recSmall: DEFAULTS.recSmall, recBig: DEFAULTS.recBig, targetDays: DEFAULTS.targetDays,
-  entry: 'groups', excluded: [], onboarded: false, stats: true, news: '', updatedAt: 0, t: {},
+  entry: 'groups', excluded: [], onboarded: false, stats: true, news: '', legacy: '', updatedAt: 0, t: {},
 };
 /* Réglages synchronisés un par un : t[clé] = date de la dernière modification de ce réglage.
    À la fusion, chaque réglage garde la valeur modifiée le plus récemment ; un réglage jamais touché
    (t = 0, valeur par défaut d'un appareil neuf) ne remplace jamais un réglage choisi ailleurs. */
-const SETTING_KEYS = ['lang', 'theme', 'recSmall', 'recBig', 'targetDays', 'entry', 'excluded', 'onboarded', 'stats', 'news'];
+const SETTING_KEYS = ['lang', 'theme', 'recSmall', 'recBig', 'targetDays', 'entry', 'excluded', 'onboarded', 'stats', 'news', 'legacy'];
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 export const state = {
@@ -56,13 +56,15 @@ function cleanSettings(x) {
   s.onboarded = !!x.onboarded;
   s.stats = x.stats !== false;
   if (typeof x.news === 'string') s.news = x.news;   // dernière carte « Nouveautés » fermée
+  if (typeof x.legacy === 'string') s.legacy = x.legacy;   // récupération des séances de l'ancien Google Drive / OneDrive : done | skipped
   s.updatedAt = +x.updatedAt || 0;
   s.t = {};
   if (x.t && typeof x.t === 'object') {
     for (const k of SETTING_KEYS) if (+x.t[k] > 0) s.t[k] = +x.t[k];
   } else if (s.updatedAt > 0) {
-    // Ancien format (réglages en bloc, avant la v2.17.2) : chaque réglage prend la date du bloc
-    for (const k of SETTING_KEYS) s.t[k] = s.updatedAt;
+    // Ancien format (réglages en bloc, avant la v2.17.2) : chaque réglage présent prend la date du bloc
+    // (un réglage absent du fichier, apparu depuis, garde sa valeur par défaut sans date)
+    for (const k of SETTING_KEYS) if (k in x) s.t[k] = s.updatedAt;
   }
   return s;
 }
